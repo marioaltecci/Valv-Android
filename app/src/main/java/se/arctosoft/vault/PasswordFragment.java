@@ -67,7 +67,7 @@ public class PasswordFragment extends Fragment {
 
         binding.btnUnlock.setEnabled(false);
 
-        // Единый слушатель текста: лимит 60 символов + тряска + блокировка кнопки
+        // Слушатель с умной тряской (только один раз при ошибке)
         binding.eTPassword.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
@@ -76,16 +76,19 @@ public class PasswordFragment extends Fragment {
                 int length = (s != null) ? s.length() : 0;
 
                 if (length > 60) {
-                    // Стиль One UI: ошибка и встряхивание
-                    binding.textField.setError("max 60");
-                    binding.textField.setErrorEnabled(true);
-                    shakeView(binding.textField);
+                    // Если текст ошибки еще не установлен — значит это первый раз, трясем
+                    if (binding.textField.getError() == null) {
+                        binding.textField.setError("max 60");
+                        binding.textField.setErrorEnabled(true);
+                        shakeView(binding.textField);
+                    }
                     binding.btnUnlock.setEnabled(false);
                 } else {
-                    // Сброс ошибки
-                    binding.textField.setError(null);
-                    binding.textField.setErrorEnabled(false);
-                    // Кнопка активна только если текст есть и он не длиннее 60
+                    // Если длина вернулась в норму, чистим ошибку полностью
+                    if (binding.textField.getError() != null) {
+                        binding.textField.setError(null);
+                        binding.textField.setErrorEnabled(false);
+                    }
                     binding.btnUnlock.setEnabled(length > 0);
                 }
             }
@@ -158,7 +161,6 @@ public class PasswordFragment extends Fragment {
 
         binding.btnHelp.setOnClickListener(v -> Dialogs.showTextDialog(requireContext(), null, getString(R.string.launcher_help_message)));
 
-        // БИОМЕТРИЯ
         BiometricManager biometricManager = BiometricManager.from(requireContext());
         if (settings.isBiometricsEnabled() && biometricManager.canAuthenticate(BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS) {
             Executor executor = ContextCompat.getMainExecutor(requireContext());
@@ -212,13 +214,11 @@ public class PasswordFragment extends Fragment {
         }
     }
 
-    // Метод анимации тряски для One UI
     private void shakeView(View view) {
-        if (view.getTranslationX() == 0) {
-            ObjectAnimator shaker = ObjectAnimator.ofFloat(view, "translationX", 0, 20, -20, 20, -20, 10, -10, 0);
-            shaker.setDuration(400);
-            shaker.start();
-        }
+        // Уменьшил амплитуду тряски, чтобы была мягче (в стиле One UI)
+        ObjectAnimator shaker = ObjectAnimator.ofFloat(view, "translationX", 0, 15, -15, 15, -15, 10, -10, 0);
+        shaker.setDuration(400);
+        shaker.start();
     }
 
     @Override
@@ -226,4 +226,4 @@ public class PasswordFragment extends Fragment {
         super.onDestroyView();
         binding = null;
     }
-                }
+    }
