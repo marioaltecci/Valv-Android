@@ -2,6 +2,7 @@ package se.arctosoft.vault;
 
 import static androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG;
 
+import android.animation.ObjectAnimator;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -22,20 +23,9 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.Navigation;
 import androidx.navigation.fragment.NavHostFragment;
 
-import java.io.IOException;
-import java.security.InvalidAlgorithmParameterException;
-import java.security.InvalidKeyException;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
-import java.security.UnrecoverableKeyException;
-import java.security.cert.CertificateException;
 import java.util.concurrent.Executor;
 
-import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
 
@@ -75,17 +65,29 @@ public class PasswordFragment extends Fragment {
 
         Settings settings = Settings.getInstance(requireContext());
 
-        // 1. Принудительно выключаем кнопку при старте (чтобы не была синей без текста)
         binding.btnUnlock.setEnabled(false);
 
-        // 2. Единый слушатель текста для управления кнопкой
+        // Единый слушатель текста: лимит 60 символов + тряска + блокировка кнопки
         binding.eTPassword.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
             @Override
             public void afterTextChanged(Editable s) {
-                // Кнопка активна ТОЛЬКО если есть символы. Никакие другие события это не изменят.
-                binding.btnUnlock.setEnabled(s != null && s.length() > 0);
+                int length = (s != null) ? s.length() : 0;
+
+                if (length > 60) {
+                    // Стиль One UI: ошибка и встряхивание
+                    binding.textField.setError("max 60");
+                    binding.textField.setErrorEnabled(true);
+                    shakeView(binding.textField);
+                    binding.btnUnlock.setEnabled(false);
+                } else {
+                    // Сброс ошибки
+                    binding.textField.setError(null);
+                    binding.textField.setErrorEnabled(false);
+                    // Кнопка активна только если текст есть и он не длиннее 60
+                    binding.btnUnlock.setEnabled(length > 0);
+                }
             }
         });
 
@@ -99,10 +101,9 @@ public class PasswordFragment extends Fragment {
             return false;
         });
 
-        // ОСНОВНАЯ ЛОГИКА РАЗБЛОКИРОВКИ
         binding.btnUnlock.setOnClickListener(v -> {
             int length = binding.eTPassword.length();
-            if (length == 0) return;
+            if (length == 0 || length > 60) return;
 
             binding.btnUnlock.setEnabled(false);
             binding.eTPassword.setEnabled(false);
@@ -118,7 +119,6 @@ public class PasswordFragment extends Fragment {
                     DirHash dirHash = settings.getDirHashForKey(temp);
                     
                     if (dirHash == null) {
-                        Log.e(TAG, "init: dirHash null, save new");
                         byte[] salt = Encryption.generateSecureSalt(Encryption.SALT_LENGTH);
                         dirHash = Encryption.getDirHash(salt, temp);
                         
@@ -130,24 +130,28 @@ public class PasswordFragment extends Fragment {
                     }
 
                     DirHash finalDirHash = dirHash;
-                    requireActivity().runOnUiThread(() -> {
-                        passwordViewModel.setDirHash(finalDirHash);
-                        binding.eTPassword.setText(null);
-                        MainActivity.GLIDE_KEY = System.currentTimeMillis();
-                        savedStateHandle.set(LOGIN_SUCCESSFUL, true);
-                        NavHostFragment.findNavController(this).popBackStack();
-                    });
+                    if (isAdded()) {
+                        requireActivity().runOnUiThread(() -> {
+                            passwordViewModel.setDirHash(finalDirHash);
+                            binding.eTPassword.setText(null);
+                            MainActivity.GLIDE_KEY = System.currentTimeMillis();
+                            savedStateHandle.set(LOGIN_SUCCESSFUL, true);
+                            NavHostFragment.findNavController(this).popBackStack();
+                        });
+                    }
 
                 } catch (Exception e) {
                     Log.e(TAG, "Критическая ошибка разблокировки", e);
-                    requireActivity().runOnUiThread(() -> {
-                        // Возвращаем состояние кнопки на основе наличия текста
-                        binding.btnUnlock.setEnabled(binding.eTPassword.length() > 0);
-                        binding.eTPassword.setEnabled(true);
-                        binding.biometrics.setEnabled(true);
-                        binding.loading.setVisibility(View.GONE);
-                        Toaster.getInstance(requireActivity()).showShort("Ошибка: " + e.getMessage());
-                    });
+                    if (isAdded()) {
+                        requireActivity().runOnUiThread(() -> {
+                            int currentLen = binding.eTPassword.length();
+                            binding.btnUnlock.setEnabled(currentLen > 0 && currentLen <= 60);
+                            binding.eTPassword.setEnabled(true);
+                            binding.biometrics.setEnabled(true);
+                            binding.loading.setVisibility(View.GONE);
+                            Toaster.getInstance(requireActivity()).showShort("Ошибка: " + e.getMessage());
+                        });
+                    }
                 }
             }).start();
         });
@@ -158,7 +162,7 @@ public class PasswordFragment extends Fragment {
         BiometricManager biometricManager = BiometricManager.from(requireContext());
         if (settings.isBiometricsEnabled() && biometricManager.canAuthenticate(BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS) {
             Executor executor = ContextCompat.getMainExecutor(requireContext());
-            biometricPrompt = new BiometricPrompt(requireActivity(), executor, new BiometricPrompt.AuthenticationCallback() {
+            biometricPrompt = new BiometricPrompt(this, executor, new BiometricPrompt.AuthenticationCallback() {
                 @Override
                 public void onAuthenticationError(int errorCode, @NonNull CharSequence errString) {
                     super.onAuthenticationError(errorCode, errString);
@@ -172,7 +176,6 @@ public class PasswordFragment extends Fragment {
                         try {
                             byte[] decrypted = cryptoObject.getCipher().doFinal(settings.getBiometricsData());
                             char[] chars = Encryption.toChars(decrypted);
-                            // setText вызовет afterTextChanged, который включит кнопку
                             binding.eTPassword.setText(chars, 0, chars.length);
                             binding.btnUnlock.performClick();
                         } catch (Exception e) {
@@ -203,10 +206,24 @@ public class PasswordFragment extends Fragment {
                 }
             });
 
-            // Запуск биометрии через post, чтобы UI успел отрисоваться
             binding.biometrics.post(() -> binding.biometrics.performClick());
         } else {
             binding.biometrics.setVisibility(View.GONE);
         }
+    }
+
+    // Метод анимации тряски для One UI
+    private void shakeView(View view) {
+        if (view.getTranslationX() == 0) {
+            ObjectAnimator shaker = ObjectAnimator.ofFloat(view, "translationX", 0, 20, -20, 20, -20, 10, -10, 0);
+            shaker.setDuration(400);
+            shaker.start();
+        }
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        binding = null;
     }
                 }
