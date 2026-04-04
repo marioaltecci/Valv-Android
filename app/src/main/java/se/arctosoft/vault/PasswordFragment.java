@@ -66,7 +66,9 @@ public class PasswordFragment extends Fragment {
         Settings settings = Settings.getInstance(requireContext());
 
         // --- ЛОГИКА ТРЯСКИ ЛОГОТИПА ---
-        binding.logoContainer.setOnClickListener(v -> shakeView(binding.logoContainer));
+        // Нажимаем на контейнер (чтобы область клика была большой), 
+        // но трясем только саму иконку ivLogo, чтобы рамка не двигалась.
+        binding.logoContainer.setOnClickListener(v -> shakeView(binding.ivLogo));
 
         binding.btnUnlock.setEnabled(false);
 
@@ -206,7 +208,8 @@ public class PasswordFragment extends Fragment {
     }
 
     private void shakeView(View view) {
-        ObjectAnimator shaker = ObjectAnimator.ofFloat(view, "translationX", 0, 15, -15, 15, -15, 10, -10, 0);
+        // Увеличил амплитуду до 20, чтобы "в воздухе" смотрелось эффектнее
+        ObjectAnimator shaker = ObjectAnimator.ofFloat(view, "translationX", 0, 20, -20, 20, -20, 15, -15, 0);
         shaker.setDuration(400);
         shaker.start();
     }
