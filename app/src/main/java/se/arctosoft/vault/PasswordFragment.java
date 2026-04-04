@@ -67,24 +67,26 @@ public class PasswordFragment extends Fragment {
 
         binding.btnUnlock.setEnabled(false);
 
-        // Слушатель с умной тряской (только один раз при ошибке)
+        // Слушатель: мгновенно реагирует на вставку и ввод
         binding.eTPassword.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            
             @Override
             public void afterTextChanged(Editable s) {
                 int length = (s != null) ? s.length() : 0;
 
                 if (length > 60) {
-                    // Если текст ошибки еще не установлен — значит это первый раз, трясем
+                    // Если лимит превышен (вставкой или вводом)
                     if (binding.textField.getError() == null) {
                         binding.textField.setError("max 60");
                         binding.textField.setErrorEnabled(true);
+                        // Трясем только в момент появления ошибки
                         shakeView(binding.textField);
                     }
                     binding.btnUnlock.setEnabled(false);
                 } else {
-                    // Если длина вернулась в норму, чистим ошибку полностью
+                    // Если вернулись в норму
                     if (binding.textField.getError() != null) {
                         binding.textField.setError(null);
                         binding.textField.setErrorEnabled(false);
@@ -215,7 +217,7 @@ public class PasswordFragment extends Fragment {
     }
 
     private void shakeView(View view) {
-        // Уменьшил амплитуду тряски, чтобы была мягче (в стиле One UI)
+        // Мягкая тряска One UI
         ObjectAnimator shaker = ObjectAnimator.ofFloat(view, "translationX", 0, 15, -15, 15, -15, 10, -10, 0);
         shaker.setDuration(400);
         shaker.start();
@@ -226,4 +228,4 @@ public class PasswordFragment extends Fragment {
         super.onDestroyView();
         binding = null;
     }
-    }
+}
