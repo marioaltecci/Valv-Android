@@ -65,9 +65,13 @@ public class PasswordFragment extends Fragment {
 
         Settings settings = Settings.getInstance(requireContext());
 
+        // --- ЛОГИКА ТРЯСКИ ЛОГОТИПА ---
+        // Нажимаем на контейнер (чтобы область клика была большой), 
+        // но трясем только саму иконку ivLogo, чтобы рамка не двигалась.
+        binding.logoContainer.setOnClickListener(v -> shakeView(binding.ivLogo));
+
         binding.btnUnlock.setEnabled(false);
 
-        // Слушатель: мгновенно реагирует на вставку и ввод
         binding.eTPassword.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
@@ -75,18 +79,14 @@ public class PasswordFragment extends Fragment {
             @Override
             public void afterTextChanged(Editable s) {
                 int length = (s != null) ? s.length() : 0;
-
                 if (length > 60) {
-                    // Если лимит превышен (вставкой или вводом)
                     if (binding.textField.getError() == null) {
                         binding.textField.setError("max 60");
                         binding.textField.setErrorEnabled(true);
-                        // Трясем только в момент появления ошибки
                         shakeView(binding.textField);
                     }
                     binding.btnUnlock.setEnabled(false);
                 } else {
-                    // Если вернулись в норму
                     if (binding.textField.getError() != null) {
                         binding.textField.setError(null);
                         binding.textField.setErrorEnabled(false);
@@ -122,11 +122,9 @@ public class PasswordFragment extends Fragment {
             new Thread(() -> {
                 try {
                     DirHash dirHash = settings.getDirHashForKey(temp);
-                    
                     if (dirHash == null) {
                         byte[] salt = Encryption.generateSecureSalt(Encryption.SALT_LENGTH);
                         dirHash = Encryption.getDirHash(salt, temp);
-                        
                         if (dirHash != null) {
                             settings.createDirHashEntry(salt, dirHash.hash());
                         } else {
@@ -144,7 +142,6 @@ public class PasswordFragment extends Fragment {
                             NavHostFragment.findNavController(this).popBackStack();
                         });
                     }
-
                 } catch (Exception e) {
                     Log.e(TAG, "Критическая ошибка разблокировки", e);
                     if (isAdded()) {
@@ -167,11 +164,6 @@ public class PasswordFragment extends Fragment {
         if (settings.isBiometricsEnabled() && biometricManager.canAuthenticate(BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS) {
             Executor executor = ContextCompat.getMainExecutor(requireContext());
             biometricPrompt = new BiometricPrompt(this, executor, new BiometricPrompt.AuthenticationCallback() {
-                @Override
-                public void onAuthenticationError(int errorCode, @NonNull CharSequence errString) {
-                    super.onAuthenticationError(errorCode, errString);
-                }
-
                 @Override
                 public void onAuthenticationSucceeded(@NonNull BiometricPrompt.AuthenticationResult result) {
                     super.onAuthenticationSucceeded(result);
@@ -202,7 +194,6 @@ public class PasswordFragment extends Fragment {
                     SecretKey secretKey = Encryption.getOrGenerateBiometricSecretKey();
                     byte[] iv = settings.getBiometricsIv();
                     if (iv == null) throw new Exception("IV не найден");
-                    
                     cipher.init(Cipher.DECRYPT_MODE, secretKey, new IvParameterSpec(iv));
                     biometricPrompt.authenticate(promptInfo, new BiometricPrompt.CryptoObject(cipher));
                 } catch (Exception e) {
@@ -217,8 +208,8 @@ public class PasswordFragment extends Fragment {
     }
 
     private void shakeView(View view) {
-        // Мягкая тряска One UI
-        ObjectAnimator shaker = ObjectAnimator.ofFloat(view, "translationX", 0, 15, -15, 15, -15, 10, -10, 0);
+        // Увеличил амплитуду до 20, чтобы "в воздухе" смотрелось эффектнее
+        ObjectAnimator shaker = ObjectAnimator.ofFloat(view, "translationX", 0, 20, -20, 20, -20, 15, -15, 0);
         shaker.setDuration(400);
         shaker.start();
     }
