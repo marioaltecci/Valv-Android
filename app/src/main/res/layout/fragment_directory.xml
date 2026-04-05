@@ -83,7 +83,8 @@
             android:layout_marginBottom="16dp"
             android:src="@drawable/round_add_24"
             app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent" />
+            app:layout_constraintEnd_toEndOf="parent"
+            android:contentDescription="@null" />
 
         <ScrollView
             android:layout_width="wrap_content"
@@ -160,7 +161,8 @@
             android:src="@drawable/ic_round_remove_circle_outline_24"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            app:tint="@color/white" />
+            app:tint="@color/white"
+            android:contentDescription="@null" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
