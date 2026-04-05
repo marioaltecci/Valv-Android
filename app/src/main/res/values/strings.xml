@@ -1,5 +1,9 @@
 <resources>
     <string name="app_name">ValvX</string>
+    <string name="gallery_add_folder">Add folder</string>
+    <string name="gallery_import_media">Import media</string>
+    <string name="gallery_add_text">Add text</string>
+    <string name="gallery_no_folders">No folders found</string>
     <string name="recent_folders">Recent Folders</string>
     <string name="gallery_encrypt_file">Encrypt file</string>
     <string name="gallery_decrypt_file">Decrypt file</string>
