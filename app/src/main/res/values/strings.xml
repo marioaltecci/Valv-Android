@@ -1,13 +1,35 @@
 <resources>
     <string name="app_name">ValvX</string>
+    <string name="title_activity_main">MainActivity</string>
+    <string name="launcher_title">Vault locked</string>
+    <string name="launcher_subtitle">Enter decryption password</string>
+    <string name="launcher_password_hint">Password</string>
+    <string name="launcher_button">Unlock vault</string>
+    <string name="launcher_help_title">Help</string>
+    <string name="launcher_help_message">Enter a password to use as decryption and encryption key. At least eight characters is recommended.\n\nTip: use different passwords to manage different vaults</string>
+
+    <string name="gallery_title">Gallery</string>
+    <string name="recent_folders">Recent Folders</string>
     <string name="gallery_add_folder">Add folder</string>
     <string name="gallery_import_media">Import media</string>
-    <string name="gallery_add_text">Add text</string>
-    <string name="gallery_no_folders">No folders found</string>
-    <string name="recent_folders">Recent Folders</string>
+    <string name="gallery_add_text">Import text</string>
+    <string name="gallery_no_folders">It\'s empty here!\n\nStart by adding a folder or importing some files.</string>
+    <string name="gallery_all">All</string>
+    <string name="gallery_adapter_folder_name">%1$s (%2$d)</string>
+    <string name="gallery_adapter_file_name">%1$s (%2$s)</string>
+    <string name="gallery_added_folder">Added %1$s</string>
+    
     <string name="gallery_encrypt_file">Encrypt file</string>
     <string name="gallery_decrypt_file">Decrypt file</string>
-    <string name="title_activity_main">MainActivity</string>
+    <string name="gallery_import_files">Import files</string>
+    <string name="gallery_import_images">Images/GIFs</string>
+    <string name="gallery_import_videos">Videos</string>
+    <string name="gallery_import_text_write">Text (write)</string>
+    <string name="gallery_import_text_title">Write text to import</string>
+    <string name="gallery_import_text_import">Import</string>
+    <string name="gallery_import_text_overwrite">Overwrite</string>
+    <string name="gallery_import_text_hint">Text…</string>
+    
     <string name="open_directory">Encrypt files in dir</string>
     <string name="decrypt_files">Decrypt files in dir</string>
     <string name="load_files">Load encrypted thumbnails</string>
@@ -16,24 +38,23 @@
     <string name="password">Password</string>
     <string name="delete">Delete</string>
     <string name="export">Export</string>
-    <string name="add_edit_note">Add/edit note</string>
-    <string name="edit_text">Edit text</string>
-    <string name="share">Share</string>
-    <string name="open_with">Open with</string>
-    <string name="more">More</string>
     <string name="remove">Remove</string>
-    <string name="licenses">Licenses</string>
-    <string name="settings">Settings</string>
     <string name="save">Save</string>
     <string name="cancel">Cancel</string>
+    <string name="share">Share</string>
+    <string name="more">More</string>
+    <string name="open_with">Open with</string>
 
-    <string name="launcher_title">Vault locked</string>
-    <string name="launcher_subtitle">Enter decryption password</string>
-    <string name="launcher_password_hint">Password</string>
-    <string name="launcher_button">Unlock vault</string>
-    <string name="launcher_help_title">Help</string>
-    <string name="launcher_help_message">Enter a password to use as decryption and encryption key. At least eight characters is recommended.\n\nTip: use different passwords to manage different vaults</string>
+    <string name="gallery_remove_selected_folders">Remove selected folders</string>
+    <string name="gallery_delete_selected_files">Delete %1$d selected files</string>
+    <string name="gallery_export_selected_files">Export selected</string>
+    <string name="gallery_copy_selected_files">Copy to</string>
+    <string name="gallery_move_selected_files">Move to</string>
+    <string name="gallery_file_deleted">File deleted</string>
+    <string name="gallery_file_not_deleted">Error, file could not be deleted</string>
+    <string name="gallery_file_exported">Exported to %1$s</string>
 
+    <string name="settings">Settings</string>
     <string name="settings_encryption">Encryption</string>
     <string name="settings_iteration_count_title">Iteration count</string>
     <string name="settings_iteration_count_summary">Set the iteration count used for key generation when encrypting new files. A higher value creates a stronger encryption key but is also slower. Default is 50000.\nCurrent: %1$d</string>
@@ -56,7 +77,7 @@
     <string name="settings_biometrics_title">Unlock with biometrics</string>
     <string name="settings_biometrics_summary">Unlock your vault with your biometric credentials. Only one vault can be unlocked with biometrics.</string>
     <string name="settings_biometrics_enabled">Biometrics enabled</string>
-
+    
     <string name="menu_gallery_edit_included_folders">Edit included folders</string>
     <string name="menu_gallery_import">Import files</string>
     <string name="menu_lock_vault">Lock vault</string>
@@ -76,30 +97,6 @@
     <string name="menu_select_all">Select all</string>
     <string name="menu_about">About</string>
 
-    <string name="gallery_all">All</string>
-    <string name="gallery_adapter_folder_name">%1$s (%2$d)</string>
-    <string name="gallery_adapter_file_name">%1$s (%2$s)</string>
-    <string name="gallery_add_folder">Add a folder</string>
-    <string name="gallery_import_media">Import media</string>
-    <string name="gallery_add_text">Import text</string>
-    <string name="gallery_added_folder">Added %1$s</string>
-    <string name="gallery_import_files">Import files</string>
-    <string name="gallery_import_images">Images/GIFs</string>
-    <string name="gallery_import_videos">Videos</string>
-    <string name="gallery_import_text_write">Text (write)</string>
-    <string name="gallery_import_text_title">Write text to import</string>
-    <string name="gallery_import_text_import">Import</string>
-    <string name="gallery_import_text_overwrite">Overwrite</string>
-    <string name="gallery_import_text_hint">Text…</string>
-    <string name="gallery_remove_selected_folders">Remove selected folders</string>
-    <string name="gallery_delete_selected_files">Delete %1$d selected files</string>
-    <string name="gallery_export_selected_files">Export selected</string>
-    <string name="gallery_copy_selected_files">Copy to</string>
-    <string name="gallery_move_selected_files">Move to</string>
-    <string name="gallery_title">Gallery</string>
-    <string name="gallery_file_deleted">File deleted</string>
-    <string name="gallery_file_not_deleted">Error, file could not be deleted</string>
-    <string name="gallery_file_exported">Exported to %1$s</string>
     <string name="gallery_selected_files_imported">Encrypted and imported %1$d files</string>
     <string name="gallery_selected_files_imported_with_failed">Imported %1$d files, %2$d failed</string>
     <string name="gallery_selected_files_deleted">Deleted %1$d files</string>
@@ -137,97 +134,35 @@
     <string name="gallery_share_with">Share/open with</string>
     <string name="gallery_click_to_open_directory">Click to open\n%1$s</string>
     <string name="gallery_find_files_no_permission">No permission to read %1$s, please add it again</string>
-    <string name="gallery_no_folders">It\'s empty here!\n\nStart by adding a folder or importing some files.</string>
 
     <string name="select_destination">Select destination:</string>
     <string name="use_other_folder">Use other folder</string>
     <string name="modal_directory_item">- %1$s</string>
     <string name="modal_current_folder">- Current folder \"%1$s\"</string>
-
-    <plurals name="import_modal_title">
-        <item quantity="one">Import %1$d file (%2$s)</item>
-        <item quantity="other">Import %1$d files (%2$s)</item>
-    </plurals>
-    <plurals name="import_modal_title_importing">
-        <item quantity="one">Importing %1$d file (%2$s)</item>
-        <item quantity="other">Importing %1$d files (%2$s)</item>
-    </plurals>
     <string name="import_modal_body">Your files will be encrypted and imported into the folder you select below.</string>
     <string name="import_modal_body_importing">Your files are being encrypted and imported into %1$s.</string>
     <string name="import_modal_importing">Importing %1$d out of %2$d\n%3$s/%4$s MB</string>
     <string name="import_modal_checkbox_delete">Delete the original files after importing</string>
     <string name="import_modal_checkbox_delete_share">Deleting shared files is not possible</string>
-
-    <plurals name="copy_modal_title">
-        <item quantity="one">Copy %1$d file (%2$s)</item>
-        <item quantity="other">Copy %1$d files (%2$s)</item>
-    </plurals>
-    <plurals name="copy_modal_title_copying">
-        <item quantity="one">Copying %1$d file (%2$s)</item>
-        <item quantity="other">Copying %1$d files (%2$s)</item>
-    </plurals>
     <string name="copy_modal_body">Your files will be copied into the folder you select below.</string>
     <string name="copy_modal_body_copying">Your files are being copied into %1$s.</string>
     <string name="copy_modal_copying">Copying %1$d out of %2$d</string>
-
-    <plurals name="move_modal_title">
-        <item quantity="one">Move %1$d file (%2$s)</item>
-        <item quantity="other">Move %1$d files (%2$s)</item>
-    </plurals>
-    <plurals name="move_modal_title_moving">
-        <item quantity="one">Moving %1$d file (%2$s)</item>
-        <item quantity="other">Moving %1$d files (%2$s)</item>
-    </plurals>
     <string name="move_modal_body">Your files will be moved into the folder you select below.</string>
     <string name="move_modal_body_moving">Your files are being moved into %1$s.</string>
     <string name="move_modal_moving">Moving %1$d out of %2$d</string>
-
-    <plurals name="delete_modal_title">
-        <item quantity="one">Delete %1$d file (%2$s)?</item>
-        <item quantity="other">Delete %1$d files (%2$s)?</item>
-    </plurals>
-    <plurals name="delete_modal_title_deleting">
-        <item quantity="one">Deleting %1$d file (%2$s)</item>
-        <item quantity="other">Deleting %1$d files (%2$s)</item>
-    </plurals>
     <string name="delete_modal_body">Delete the selected file(s) permanently? This action is irreversible.</string>
     <string name="delete_modal_body_deleting">Deleting…</string>
     <string name="delete_modal_deleting">Deleting %1$d out of %2$d</string>
-
-    <plurals name="export_modal_title">
-        <item quantity="one">Export %1$d file (%2$s)?</item>
-        <item quantity="other">Export %1$d files (%2$s)?</item>
-    </plurals>
-    <plurals name="export_modal_title_exporting">
-        <item quantity="one">Exporting %1$d file (%2$s)</item>
-        <item quantity="other">Exporting %1$d files (%2$s)</item>
-    </plurals>
     <string name="export_modal_body">Decrypt and export the selected file(s) to %1$s?</string>
     <string name="export_modal_body_exporting">Exporting…</string>
     <string name="export_modal_exporting">Exporting %1$d out of %2$d</string>
 
     <string name="dialog_remove_folder_title">Remove?</string>
-    <plurals name="dialog_remove_folder_message">
-        <item quantity="one">Remove the selected folder from your vault? The folder on disk and contained files will not be deleted</item>
-        <item quantity="other">Remove the selected folders from your vault? The folder on disk and contained files will not be deleted</item>
-    </plurals>
     <string name="dialog_delete_files_title">Delete?</string>
-    <plurals name="dialog_delete_files_message">
-        <item quantity="one">Delete the selected file permanently? This action is irreversible</item>
-        <item quantity="other">Delete the selected files permanently? This action is irreversible</item>
-    </plurals>
     <string name="dialog_import_to_title">Destination</string>
     <string name="dialog_import_to_button_neutral">Add new</string>
     <string name="dialog_edit_included_title">Select folders to remove from the start screen</string>
     <string name="directory_does_not_exist">Folder does not exit</string>
-    <plurals name="dialog_import_to_delete_original">
-        <item quantity="one">Delete the original file after importing</item>
-        <item quantity="other">Delete the original files after importing</item>
-    </plurals>
-    <plurals name="edit_included_removed">
-        <item quantity="one">Removed %1$d folder</item>
-        <item quantity="other">Removed %1$d folders</item>
-    </plurals>
     <string name="dialog_export_title">Export?</string>
     <string name="dialog_export_message">Decrypt and export this file?</string>
     <string name="dialog_export_selected_title">Export?</string>
@@ -243,4 +178,64 @@
     <string name="biometrics_prompt_subtitle">Allow logging in to this vault using your biometric credential.</string>
     <string name="biometrics_unlock_title">Unlock your vault</string>
 
+    <string name="add_edit_note">Add/edit note</string>
+    <string name="edit_text">Edit text</string>
+    <string name="licenses">Licenses</string>
+
+    <plurals name="import_modal_title">
+        <item quantity="one">Import %1$d file (%2$s)</item>
+        <item quantity="other">Import %1$d files (%2$s)</item>
+    </plurals>
+    <plurals name="import_modal_title_importing">
+        <item quantity="one">Importing %1$d file (%2$s)</item>
+        <item quantity="other">Importing %1$d files (%2$s)</item>
+    </plurals>
+    <plurals name="copy_modal_title">
+        <item quantity="one">Copy %1$d file (%2$s)</item>
+        <item quantity="other">Copy %1$d files (%2$s)</item>
+    </plurals>
+    <plurals name="copy_modal_title_copying">
+        <item quantity="one">Copying %1$d file (%2$s)</item>
+        <item quantity="other">Copying %1$d files (%2$s)</item>
+    </plurals>
+    <plurals name="move_modal_title">
+        <item quantity="one">Move %1$d file (%2$s)</item>
+        <item quantity="other">Move %1$d files (%2$s)</item>
+    </plurals>
+    <plurals name="move_modal_title_moving">
+        <item quantity="one">Moving %1$d file (%2$s)</item>
+        <item quantity="other">Moving %1$d files (%2$s)</item>
+    </plurals>
+    <plurals name="delete_modal_title">
+        <item quantity="one">Delete %1$d file (%2$s)?</item>
+        <item quantity="other">Delete %1$d files (%2$s)?</item>
+    </plurals>
+    <plurals name="delete_modal_title_deleting">
+        <item quantity="one">Deleting %1$d file (%2$s)</item>
+        <item quantity="other">Deleting %1$d files (%2$s)</item>
+    </plurals>
+    <plurals name="export_modal_title">
+        <item quantity="one">Export %1$d file (%2$s)?</item>
+        <item quantity="other">Export %1$d files (%2$s)?</item>
+    </plurals>
+    <plurals name="export_modal_title_exporting">
+        <item quantity="one">Exporting %1$d file (%2$s)</item>
+        <item quantity="other">Exporting %1$d files (%2$s)</item>
+    </plurals>
+    <plurals name="dialog_remove_folder_message">
+        <item quantity="one">Remove the selected folder from your vault? The folder on disk and contained files will not be deleted</item>
+        <item quantity="other">Remove the selected folders from your vault? The folder on disk and contained files will not be deleted</item>
+    </plurals>
+    <plurals name="dialog_delete_files_message">
+        <item quantity="one">Delete the selected file permanently? This action is irreversible</item>
+        <item quantity="other">Delete the selected files permanently? This action is irreversible</item>
+    </plurals>
+    <plurals name="dialog_import_to_delete_original">
+        <item quantity="one">Delete the original file after importing</item>
+        <item quantity="other">Delete the original files after importing</item>
+    </plurals>
+    <plurals name="edit_included_removed">
+        <item quantity="one">Removed %1$d folder</item>
+        <item quantity="other">Removed %1$d folders</item>
+    </plurals>
 </resources>
