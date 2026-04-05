@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/nav_graph"
-    app:startDestination="@id/directory">
+    app:startDestination="@id/startFragment">
 
     <action
         android:id="@+id/action_global_password"
@@ -12,6 +12,18 @@
         app:exitAnim="@anim/fade_out_fast"
         app:popEnterAnim="@anim/fade_in_fast"
         app:popExitAnim="@anim/fade_out_fast" />
+
+    <fragment
+        android:id="@+id/startFragment"
+        android:name="se.arctosoft.vault.StartFragment"
+        android:label="Start"
+        tools:layout="@layout/fragment_start">
+        <action
+            android:id="@+id/action_start_to_password"
+            app:destination="@id/password"
+            app:enterAnim="@anim/fade_in_fast"
+            app:exitAnim="@anim/fade_out_fast" />
+    </fragment>
 
     <fragment
         android:id="@+id/directory"
@@ -52,7 +64,12 @@
         android:id="@+id/password"
         android:name="se.arctosoft.vault.PasswordFragment"
         android:label="@string/launcher_title"
-        tools:layout="@layout/fragment_password" />
+        tools:layout="@layout/fragment_password">
+        <argument
+            android:name="is_create_mode"
+            android:defaultValue="false"
+            app:argType="boolean" />
+    </fragment>
 
     <fragment
         android:id="@+id/settings"
