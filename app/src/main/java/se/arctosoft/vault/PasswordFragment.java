@@ -106,12 +106,10 @@ public class PasswordFragment extends Fragment {
             int length = binding.eTPassword.length();
             if (length == 0 || length > 60) return;
 
-            toggleLoading(true, false); // EN: Loading on button / RU: Загрузка на кнопке
+            toggleLoading(true, false);
 
             char[] temp = new char[length];
             binding.eTPassword.getText().getChars(0, length, temp, 0);
-            
-            // EN: Start validation process / RU: Запуск процесса проверки
             performUnlock(temp, false);
         });
 
@@ -133,17 +131,12 @@ public class PasswordFragment extends Fragment {
             public void onAuthenticationSucceeded(@NonNull BiometricPrompt.AuthenticationResult result) {
                 super.onAuthenticationSucceeded(result);
                 requireActivity().runOnUiThread(() -> {
-                    // EN: Loading on biometric icon only / RU: Загрузка только на иконке отпечатка
                     toggleLoading(true, true);
-                    
                     BiometricPrompt.CryptoObject cryptoObject = result.getCryptoObject();
                     if (cryptoObject != null) {
                         try {
                             byte[] decrypted = cryptoObject.getCipher().doFinal(settings.getBiometricsData());
                             char[] chars = Encryption.toChars(decrypted);
-                            
-                            // EN: Direct unlock without setting text or clicking button
-                            // RU: Прямая разблокировка без вставки текста и клика по кнопке
                             performUnlock(chars, true);
                         } catch (Exception e) {
                             toggleLoading(false, true);
@@ -181,13 +174,8 @@ public class PasswordFragment extends Fragment {
         binding.biometrics.post(() -> binding.biometrics.performClick());
     }
 
-    /**
-     * EN: Common logic for both password and biometric unlock
-     * RU: Общая логика для разблокировки паролем и биометрией
-     */
     private void performUnlock(char[] password, boolean isBiometric) {
         passwordViewModel.setPassword(password);
-
         new Thread(() -> {
             try {
                 DirHash dirHash = settings.getDirHashForKey(password);
@@ -209,16 +197,12 @@ public class PasswordFragment extends Fragment {
                         binding.eTPassword.setText(null);
                         MainActivity.GLIDE_KEY = System.currentTimeMillis();
                         savedStateHandle.set(LOGIN_SUCCESSFUL, true);
-                        
                         binding.getRoot().postDelayed(() -> {
-                            if (isAdded()) {
-                                NavHostFragment.findNavController(this).popBackStack();
-                            }
+                            if (isAdded()) NavHostFragment.findNavController(this).popBackStack();
                         }, 50);
                     });
                 }
             } catch (Exception e) {
-                Log.e(TAG, "Unlock failed", e);
                 if (isAdded()) {
                     requireActivity().runOnUiThread(() -> {
                         toggleLoading(false, isBiometric);
@@ -229,16 +213,12 @@ public class PasswordFragment extends Fragment {
         }).start();
     }
 
-    /**
-     * EN: Switches visual loading state between buttons
-     * RU: Переключает визуальное состояние загрузки для кнопок
-     */
     private void toggleLoading(boolean isLoading, boolean isBiometric) {
         if (isLoading) {
             CircularProgressDrawable progress = new CircularProgressDrawable(requireContext());
             progress.setStyle(CircularProgressDrawable.DEFAULT);
-            progress.setColorSchemeColors(ContextCompat.getColor(requireContext(), R.color.primary_color));
-            progress.setStrokeWidth(5f);
+            progress.setColorSchemeColors(0xFFFFFFFF); // EN: White for contrast / RU: Белый для контраста
+            progress.setStrokeWidth(8f); // EN: Thicker line / RU: Линия толще
             progress.setCenterRadius(20f);
             progress.start();
 
@@ -251,8 +231,6 @@ public class PasswordFragment extends Fragment {
                 binding.biometrics.setEnabled(false);
             }
         } else {
-            // EN: Restore original icons and states
-            // RU: Возвращаем иконки и состояние
             binding.biometrics.setIconResource(R.drawable.rounded_fingerprint_24);
             binding.btnUnlock.setIcon(null);
             binding.btnUnlock.setEnabled(binding.eTPassword.length() > 0);
@@ -266,4 +244,4 @@ public class PasswordFragment extends Fragment {
         super.onDestroyView();
         binding = null;
     }
-                            }
+}
