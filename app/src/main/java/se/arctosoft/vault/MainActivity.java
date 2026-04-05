@@ -13,6 +13,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.documentfile.provider.DocumentFile;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavController;
+import androidx.navigation.NavOptions;
 import androidx.navigation.Navigation;
 import androidx.navigation.fragment.NavHostFragment;
 import androidx.navigation.ui.AppBarConfiguration;
@@ -38,22 +39,28 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         EdgeToEdge.enable(this);
         super.onCreate(savedInstanceState);
+        
         Settings settings = Settings.getInstance(this);
+        
+        // Use secure flag to protect sensitive content
+        // Используем флаг безопасности для защиты контента
         if (settings.isSecureFlag()) {
             getWindow().setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE);
         }
 
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
-
         setSupportActionBar(binding.toolbar);
 
-        NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager().findFragmentById(R.id.nav_host_fragment_content_main);
+        NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager()
+                .findFragmentById(R.id.nav_host_fragment_content_main);
         assert navHostFragment != null;
         NavController navController = navHostFragment.getNavController();
         appBarConfiguration = new AppBarConfiguration.Builder(navController.getGraph()).build();
         NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration);
 
+        // Manage Toolbar visibility and ensure clean transitions
+        // Управление видимостью тулбара и обеспечение чистых переходов
         navController.addOnDestinationChangedListener((controller, destination, arguments) -> {
             if (destination.getId() == R.id.password) {
                 binding.appBar.setVisibility(View.GONE);
@@ -62,7 +69,13 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        Intent intent = getIntent();
+        handleIntents(getIntent());
+    }
+
+    // --- INTENT HANDLING (FOR SHARING FILES) ---
+    // --- ОБРАБОТКА ИНТЕНТОВ (ДЛЯ ПРИЕМА ФАЙЛОВ) ---
+
+    private void handleIntents(Intent intent) {
         String action = intent.getAction();
         String type = intent.getType();
 
@@ -100,7 +113,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void addSharedFiles(@NonNull List<DocumentFile> documentFiles) {
-        Log.e(TAG, "addSharedFiles: " + documentFiles.size());
+        Log.e(TAG, "Files received via share: " + documentFiles.size());
         ShareViewModel shareViewModel = new ViewModelProvider(this).get(ShareViewModel.class);
         shareViewModel.clear();
         shareViewModel.getFilesReceived().addAll(documentFiles);
@@ -115,7 +128,8 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
-        Log.d(TAG, "onDestroy: " + isChangingConfigurations());
+        // Lock the vault if the app is destroyed (and not just rotating)
+        // Блокируем сейф, если приложение закрывается (а не просто переворачивается экран)
         if (!isChangingConfigurations()) {
             Password.lock(this, false);
         }
