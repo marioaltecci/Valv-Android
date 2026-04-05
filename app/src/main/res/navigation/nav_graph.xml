@@ -8,10 +8,10 @@
     <action
         android:id="@+id/action_global_password"
         app:destination="@id/password"
-        app:enterAnim="@android:anim/fade_in"
-        app:exitAnim="@android:anim/fade_out"
-        app:popEnterAnim="@android:anim/fade_in"
-        app:popExitAnim="@android:anim/fade_out" />
+        app:enterAnim="@anim/fade_in_fast"
+        app:exitAnim="@anim/fade_out_fast"
+        app:popEnterAnim="@anim/fade_in_fast"
+        app:popExitAnim="@anim/fade_out_fast" />
 
     <fragment
         android:id="@+id/directory"
