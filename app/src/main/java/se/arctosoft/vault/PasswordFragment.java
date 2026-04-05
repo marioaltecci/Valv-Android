@@ -130,7 +130,8 @@ public class PasswordFragment extends Fragment {
 
         binding.eTPassword.setOnEditorActionListener((v, actionId, event) -> {
             if (actionId == EditorInfo.IME_ACTION_GO || actionId == EditorInfo.IME_ACTION_DONE) {
-                if (binding.btnUnlock.setEnabled()) {
+                // ИСПРАВЛЕНО: используем isEnabled()
+                if (binding.btnUnlock.isEnabled()) {
                     binding.btnUnlock.performClick();
                 }
                 return true;
@@ -250,4 +251,4 @@ public class PasswordFragment extends Fragment {
         super.onDestroyView();
         binding = null;
     }
-                        }
+}
