@@ -51,10 +51,14 @@ public class PasswordFragment extends Fragment {
     private BiometricPrompt biometricPrompt;
     private BiometricPrompt.PromptInfo promptInfo;
 
-    // Для эффекта резины
+    // --- НАСТРОЙКИ ЭФФЕКТА "ТУГОЙ РЕЗИНЫ" ---
     private float lastTouchY;
-    private final float RESISTANCE = 0.15f; 
-    private final float MAX_DRAG = 30f; 
+    
+    // Уменьшили сопротивление (было 0.15f), чтобы тянулся легче и "резиновее"
+    private final float RESISTANCE = 0.10f; 
+    
+    // Увеличили максимальный ход (было 30f), чтобы тянулся дальше
+    private final float MAX_DRAG = 45f; 
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -85,18 +89,25 @@ public class PasswordFragment extends Fragment {
                 case MotionEvent.ACTION_MOVE:
                     float deltaY = event.getRawY() - lastTouchY;
                     if (deltaY > 0) {
+                        // Вычисляем drag с учетом новых, более свободных настроек
                         float drag = Math.min(deltaY * RESISTANCE, MAX_DRAG);
                         v.setTranslationY(drag);
-                        v.setScaleY(1f + (drag * 0.002f));
+                        
+                        // Чуть сильнее деформируем при растяжении для эффекта мягкой резины
+                        v.setScaleY(1f + (drag * 0.003f)); 
                     }
                     break;
                 case MotionEvent.ACTION_UP:
                 case MotionEvent.ACTION_CANCEL:
                     float currentY = v.getTranslationY();
+                    
+                    // Хлесткий возврат назад
                     v.animate().translationY(0).scaleY(1f)
                             .setInterpolator(new OvershootInterpolator(4f))
                             .setDuration(400).start();
-                    if (currentY < 15) v.performClick();
+                            
+                    // Порог клика (было 15) чуть увеличим, т.к. ход стал больше
+                    if (currentY < 20) v.performClick();
                     break;
             }
             return true;
@@ -251,4 +262,4 @@ public class PasswordFragment extends Fragment {
         super.onDestroyView();
         binding = null;
     }
-}
+                        }
