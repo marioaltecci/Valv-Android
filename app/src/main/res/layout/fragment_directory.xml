@@ -139,9 +139,7 @@
                     app:icon="@drawable/ic_outline_create_new_folder_24" />
 
             </androidx.appcompat.widget.LinearLayoutCompat>
-
         </ScrollView>
-
     </androidx.constraintlayout.widget.ConstraintLayout>
 
     <androidx.constraintlayout.widget.ConstraintLayout
@@ -163,7 +161,6 @@
             app:layout_constraintEnd_toEndOf="parent"
             app:tint="@color/white"
             android:contentDescription="@null" />
-
     </androidx.constraintlayout.widget.ConstraintLayout>
 
     <include
