@@ -53,11 +53,7 @@ public class PasswordFragment extends Fragment {
 
     // --- НАСТРОЙКИ ЭФФЕКТА "ТУГОЙ РЕЗИНЫ" ---
     private float lastTouchY;
-    
-    // Уменьшили сопротивление (было 0.15f), чтобы тянулся легче и "резиновее"
     private final float RESISTANCE = 0.10f; 
-    
-    // Увеличили максимальный ход (было 30f), чтобы тянулся дальше
     private final float MAX_DRAG = 45f; 
 
     @Override
@@ -78,7 +74,8 @@ public class PasswordFragment extends Fragment {
 
         Settings settings = Settings.getInstance(requireContext());
 
-        // --- ЛОГИКА ТРЯСКИ И РАЗТЯГИВАНИЯ ЛОГОТИПА ---
+        // --- РЕЗИНОВЫЙ ЛОГОТИП С ПОДДЕРЖКОЙ ТЕМЫ ---
+        // Если в XML добавлен tint="?attr/colorOnSurface", он будет инвертироваться сам
         binding.logoContainer.setOnClickListener(v -> shakeView(binding.ivLogo));
 
         binding.logoContainer.setOnTouchListener((v, event) -> {
@@ -89,30 +86,24 @@ public class PasswordFragment extends Fragment {
                 case MotionEvent.ACTION_MOVE:
                     float deltaY = event.getRawY() - lastTouchY;
                     if (deltaY > 0) {
-                        // Вычисляем drag с учетом новых, более свободных настроек
                         float drag = Math.min(deltaY * RESISTANCE, MAX_DRAG);
                         v.setTranslationY(drag);
-                        
-                        // Чуть сильнее деформируем при растяжении для эффекта мягкой резины
                         v.setScaleY(1f + (drag * 0.003f)); 
                     }
                     break;
                 case MotionEvent.ACTION_UP:
                 case MotionEvent.ACTION_CANCEL:
                     float currentY = v.getTranslationY();
-                    
-                    // Хлесткий возврат назад
                     v.animate().translationY(0).scaleY(1f)
                             .setInterpolator(new OvershootInterpolator(4f))
                             .setDuration(400).start();
-                            
-                    // Порог клика (было 15) чуть увеличим, т.к. ход стал больше
                     if (currentY < 20) v.performClick();
                     break;
             }
             return true;
         });
 
+        // --- ИСПРАВЛЕНИЕ КНОПКИ UNLOCK ---
         binding.btnUnlock.setEnabled(false);
 
         binding.eTPassword.addTextChangedListener(new TextWatcher() {
@@ -134,6 +125,7 @@ public class PasswordFragment extends Fragment {
                         binding.textField.setError(null);
                         binding.textField.setErrorEnabled(false);
                     }
+                    // Кнопка активируется только если есть текст
                     binding.btnUnlock.setEnabled(length > 0);
                 }
             }
@@ -141,7 +133,6 @@ public class PasswordFragment extends Fragment {
 
         binding.eTPassword.setOnEditorActionListener((v, actionId, event) -> {
             if (actionId == EditorInfo.IME_ACTION_GO || actionId == EditorInfo.IME_ACTION_DONE) {
-                // ИСПРАВЛЕНО: используем isEnabled()
                 if (binding.btnUnlock.isEnabled()) {
                     binding.btnUnlock.performClick();
                 }
@@ -172,7 +163,7 @@ public class PasswordFragment extends Fragment {
                         if (dirHash != null) {
                             settings.createDirHashEntry(salt, dirHash.hash());
                         } else {
-                            throw new Exception("Не удалось создать хэш директории");
+                            throw new Exception("Hash error");
                         }
                     }
 
@@ -187,7 +178,6 @@ public class PasswordFragment extends Fragment {
                         });
                     }
                 } catch (Exception e) {
-                    Log.e(TAG, "Критическая ошибка разблокировки", e);
                     if (isAdded()) {
                         requireActivity().runOnUiThread(() -> {
                             int currentLen = binding.eTPassword.length();
@@ -195,7 +185,7 @@ public class PasswordFragment extends Fragment {
                             binding.eTPassword.setEnabled(true);
                             binding.biometrics.setEnabled(true);
                             binding.loading.setVisibility(View.GONE);
-                            Toaster.getInstance(requireActivity()).showShort("Ошибка: " + e.getMessage());
+                            Toaster.getInstance(requireActivity()).showShort("Ошибка");
                         });
                     }
                 }
@@ -204,6 +194,7 @@ public class PasswordFragment extends Fragment {
 
         binding.btnHelp.setOnClickListener(v -> Dialogs.showTextDialog(requireContext(), null, getString(R.string.launcher_help_message)));
 
+        // --- БИОМЕТРИЯ ---
         BiometricManager biometricManager = BiometricManager.from(requireContext());
         if (settings.isBiometricsEnabled() && biometricManager.canAuthenticate(BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS) {
             Executor executor = ContextCompat.getMainExecutor(requireContext());
@@ -219,7 +210,6 @@ public class PasswordFragment extends Fragment {
                             binding.eTPassword.setText(chars, 0, chars.length);
                             binding.btnUnlock.performClick();
                         } catch (Exception e) {
-                            Log.e(TAG, "Decrypt error", e);
                             Toaster.getInstance(requireActivity()).showShort("Ошибка биометрии");
                         }
                     }
@@ -237,7 +227,6 @@ public class PasswordFragment extends Fragment {
                     Cipher cipher = Encryption.getBiometricCipher();
                     SecretKey secretKey = Encryption.getOrGenerateBiometricSecretKey();
                     byte[] iv = settings.getBiometricsIv();
-                    if (iv == null) throw new Exception("IV не найден");
                     cipher.init(Cipher.DECRYPT_MODE, secretKey, new IvParameterSpec(iv));
                     biometricPrompt.authenticate(promptInfo, new BiometricPrompt.CryptoObject(cipher));
                 } catch (Exception e) {
@@ -262,4 +251,4 @@ public class PasswordFragment extends Fragment {
         super.onDestroyView();
         binding = null;
     }
-                        }
+                                                          }
