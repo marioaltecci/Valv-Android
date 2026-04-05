@@ -12,6 +12,7 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity; // EN: Added import / RU: Добавлен импорт
 import androidx.fragment.app.Fragment;
 import androidx.navigation.Navigation;
 
@@ -28,8 +29,7 @@ public class StartFragment extends Fragment {
                 if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
                     Uri treeUri = result.getData().getData();
                     if (treeUri != null) {
-                        // EN: Persist permissions to access the folder later
-                        // RU: Сохраняем права доступа к папке на будущее
+                        // EN: Persist permissions to access the folder later / RU: Сохраняем права доступа к папке на будущее
                         int takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION;
                         requireContext().getContentResolver().takePersistableUriPermission(treeUri, takeFlags);
                         
@@ -48,13 +48,18 @@ public class StartFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+
+        // EN: HIDE SYSTEM TITLE "Start" / RU: СКРЫВАЕМ СИСТЕМНЫЙ ЗАГОЛОВОК "Start"
+        if (getActivity() != null && ((AppCompatActivity) getActivity()).getSupportActionBar() != null) {
+            ((AppCompatActivity) getActivity()).getSupportActionBar().hide();
+        }
+
         ViewAnimations.setupElasticLogo(binding.headerArea, binding.ivLogo);
 
-        // EN: Open existing vault (logic remains the same) / RU: Открыть существующее (логика та же)
+        // EN: Open existing vault / RU: Открыть существующее
         binding.btnOpenVault.setOnClickListener(v -> goToPasswordScreen(null, false));
 
-        // EN: Pick a folder where the app will create encrypted files
-        // RU: Выбираем папку, где приложение будет создавать зашифрованные файлы
+        // EN: Pick a folder / RU: Выбираем папку
         binding.btnCreateVault.setOnClickListener(v -> {
             Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
             openTreeLauncher.launch(intent);
