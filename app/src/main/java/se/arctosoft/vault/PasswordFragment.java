@@ -3,6 +3,7 @@ package se.arctosoft.vault;
 import static androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG;
 
 import android.annotation.SuppressLint;
+import android.net.Uri;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -48,7 +49,9 @@ public class PasswordFragment extends Fragment {
     private BiometricPrompt biometricPrompt;
     private BiometricPrompt.PromptInfo promptInfo;
     private Settings settings;
+    
     private boolean isCreateMode = false;
+    private Uri targetFileUri; // EN: URI of the file from SAF / RU: URI файла из SAF
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -62,9 +65,11 @@ public class PasswordFragment extends Fragment {
         passwordViewModel = new ViewModelProvider(requireActivity()).get(PasswordViewModel.class);
         settings = Settings.getInstance(requireContext());
 
-        // EN: Get mode from arguments (Create vs Open) / RU: Получаем режим из аргументов (Создать или Открыть)
+        // EN: Get mode and file URI from arguments / RU: Получаем режим и URI файла из аргументов
         if (getArguments() != null) {
             isCreateMode = getArguments().getBoolean("is_create_mode", false);
+            String uriString = getArguments().getString("file_uri");
+            if (uriString != null) targetFileUri = Uri.parse(uriString);
         }
 
         savedStateHandle = Navigation.findNavController(view)
@@ -74,12 +79,13 @@ public class PasswordFragment extends Fragment {
 
         // --- UI SETUP ---
         ViewAnimations.setupElasticLogo(binding.logoContainer, binding.ivLogo);
-        
-        // EN: Back button logic / RU: Логика кнопки "Назад"
         binding.btnBack.setOnClickListener(v -> Navigation.findNavController(v).popBackStack());
 
         // --- PASSWORD INPUT LOGIC ---
         binding.btnUnlock.setEnabled(false);
+        // EN: Update button text based on mode / RU: Обновляем текст кнопки в зависимости от режима
+        binding.btnUnlock.setText(isCreateMode ? "Create" : "Unlock");
+
         binding.eTPassword.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
@@ -130,20 +136,27 @@ public class PasswordFragment extends Fragment {
             try {
                 DirHash dirHash = settings.getDirHashForKey(password);
                 
-                // EN: If opening existing but no hash found / RU: Если открываем старое, но хеш не найден
+                // EN: Validate existence if in Open mode / RU: Проверяем существование, если в режиме "Открыть"
                 if (!isCreateMode && dirHash == null) {
                     showError("Vault not found or wrong password");
                     return;
                 }
 
-                // EN: If creating new vault / RU: Если создаем новое хранилище
+                // EN: If creating, generate salt and handle file URI / RU: Если создаем, генерим соль и работаем с URI
                 if (isCreateMode) {
                     byte[] salt = Encryption.generateSecureSalt(Encryption.SALT_LENGTH);
                     dirHash = Encryption.getDirHash(salt, password);
                     if (dirHash != null) {
+                        // EN: Save hash entry and link to file URI if needed
+                        // RU: Сохраняем запись хеша и привязываем к URI файла, если нужно
                         settings.createDirHashEntry(salt, dirHash.hash());
+                        if (targetFileUri != null) {
+                            // EN: Store this URI in settings as current vault
+                            // RU: Сохраняем этот URI в настройках как текущее хранилище
+                            settings.setVaultUri(targetFileUri.toString());
+                        }
                     } else {
-                        throw new Exception("Hash generation failed");
+                        throw new Exception("Hash failed");
                     }
                 }
 
@@ -162,7 +175,7 @@ public class PasswordFragment extends Fragment {
                     });
                 }
             } catch (Exception e) {
-                showError("Authentication error");
+                showError("Error: " + e.getMessage());
             }
         }).start();
     }
@@ -230,7 +243,6 @@ public class PasswordFragment extends Fragment {
         if (isLoading) {
             CircularProgressDrawable progress = new CircularProgressDrawable(requireContext());
             progress.setStyle(CircularProgressDrawable.DEFAULT);
-            // EN: Blue for biometric, White for button / RU: Синий для биометрии, Белый для кнопки
             int color = isBiometric ? ContextCompat.getColor(requireContext(), R.color.primary_color) : 0xFFFFFFFF;
             progress.setColorSchemeColors(color);
             progress.setStrokeWidth(8f);
@@ -261,4 +273,4 @@ public class PasswordFragment extends Fragment {
         super.onDestroyView();
         binding = null;
     }
-                    }
+                }
