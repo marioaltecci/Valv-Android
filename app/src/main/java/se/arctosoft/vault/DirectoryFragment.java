@@ -95,17 +95,29 @@ public class DirectoryFragment extends DirectoryBaseFragment {
         };
         requireActivity().getOnBackPressedDispatcher().addCallback(getViewLifecycleOwner(), callback);
 
+        // --- FIXED HEADER LOGIC / ИСПРАВЛЕННАЯ ЛОГИКА ЗАГОЛОВКА ---
         Bundle arguments = getArguments();
         if (arguments != null) {
+            String rawDir = arguments.getString(ARGUMENT_DIRECTORY);
+            String cleanDir = rawDir;
+
+            // EN: Clean up "primary:FolderName" into "/FolderName" 
+            // RU: Очищаем "primary:FolderName" в "/FolderName"
+            if (rawDir != null && rawDir.contains("primary:")) {
+                cleanDir = rawDir.replace("primary:", "/");
+            }
+
             galleryViewModel.setNestedPath(arguments.getString(ARGUMENT_NESTED_PATH, ""));
-            galleryViewModel.setDirectory(arguments.getString(ARGUMENT_DIRECTORY), context);
+            galleryViewModel.setDirectory(cleanDir, context); // EN: Use cleaned name / RU: Используем чистое имя
         }
+        // ---------------------------------------------------------
+
         galleryViewModel.setAllFolder(false);
         Log.e(TAG, "init: directory: " + galleryViewModel.getDirectory());
         Log.e(TAG, "init: nested path: " + galleryViewModel.getNestedPath());
         if (galleryViewModel.getCurrentDirectoryUri() != null) {
             galleryViewModel.setRootDir(false);
-            if (!initActionBar(false)) { // getSupportActionBar() is null directly after orientation change
+            if (!initActionBar(false)) { 
                 binding.recyclerView.post(() -> initActionBar(false));
             }
         } else {
@@ -182,7 +194,6 @@ public class DirectoryFragment extends DirectoryBaseFragment {
             if (expandedFabs) {
                 binding.fab.animate().rotation(0).setDuration(120).start();
                 for (View view : views) {
-                    //view.animate().alpha(0f).setDuration(120).setListener(getHideOnEndListener(view)).start();
                     view.setAlpha(0f);
                     view.setVisibility(View.GONE);
                 }
@@ -272,25 +283,10 @@ public class DirectoryFragment extends DirectoryBaseFragment {
 
     private Animator.AnimatorListener getShowOnStartListener(View view) {
         return new Animator.AnimatorListener() {
-            @Override
-            public void onAnimationStart(@NonNull Animator animation) {
-                view.setVisibility(View.VISIBLE);
-            }
-
-            @Override
-            public void onAnimationEnd(@NonNull Animator animation) {
-
-            }
-
-            @Override
-            public void onAnimationCancel(@NonNull Animator animation) {
-
-            }
-
-            @Override
-            public void onAnimationRepeat(@NonNull Animator animation) {
-
-            }
+            @Override public void onAnimationStart(@NonNull Animator animation) { view.setVisibility(View.VISIBLE); }
+            @Override public void onAnimationEnd(@NonNull Animator animation) {}
+            @Override public void onAnimationCancel(@NonNull Animator animation) {}
+            @Override public void onAnimationRepeat(@NonNull Animator animation) {}
         };
     }
 
@@ -309,9 +305,7 @@ public class DirectoryFragment extends DirectoryBaseFragment {
 
     private void addFolder(Uri uri, boolean asRootDir) {
         Context context = getContext();
-        if (context == null) {
-            return;
-        }
+        if (context == null) return;
         DocumentFile documentFile = DocumentFile.fromTreeUri(context, uri);
         context.getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
         settings.addGalleryDirectory(documentFile.getUri(), asRootDir, new IOnDirectoryAdded() {
@@ -319,13 +313,11 @@ public class DirectoryFragment extends DirectoryBaseFragment {
             public void onAddedAsRoot() {
                 Toaster.getInstance(context).showLong(getString(R.string.gallery_added_folder, FileStuff.getFilenameWithPathFromUri(uri)));
                 Uri directoryUri = documentFile.getUri();
-                //List<GalleryFile> galleryFiles = FileStuff.getFilesInFolder(context, directoryUri);
-
                 if (galleryViewModel.getGalleryFiles().isEmpty()) {
                     addAllFolder();
                 }
                 synchronized (LOCK) {
-                    galleryViewModel.getGalleryFiles().add(0, GalleryFile.asDirectory(directoryUri/*, galleryFiles*/));
+                    galleryViewModel.getGalleryFiles().add(0, GalleryFile.asDirectory(directoryUri));
                     galleryGridAdapter.notifyItemInserted(0);
                 }
             }
@@ -338,17 +330,9 @@ public class DirectoryFragment extends DirectoryBaseFragment {
             @Override
             public void onAlreadyExists() {
                 Toaster.getInstance(context).showLong(getString(R.string.gallery_added_folder, FileStuff.getFilenameWithPathFromUri(uri)));
-                if (asRootDir) {
-                    addRootFolders();
-                }
+                if (asRootDir) addRootFolders();
             }
         });
-        //if (viewModel.getFilesToAdd() != null) {
-        //    importFiles(viewModel.getFilesToAdd());
-        //}
-        //if (viewModel.getTextToImport() != null) {
-        //    importText(viewModel.getTextToImport());
-        //}
     }
 
     @Override
@@ -411,4 +395,4 @@ public class DirectoryFragment extends DirectoryBaseFragment {
         super.onStart();
         checkSharedData();
     }
-}
+                        }
