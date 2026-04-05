@@ -1,6 +1,6 @@
 /*
  * Valv-Android
- * Copyright (C) 2023 Arctosoft AB
+ * Copyright (c) 2023 Arctosoft AB
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,7 +22,9 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.net.Uri;
 import android.text.Editable;
+import android.text.InputType;
 import android.text.TextWatcher;
+import android.widget.EditText;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -37,6 +39,7 @@ import java.util.List;
 
 import se.arctosoft.vault.BuildConfig;
 import se.arctosoft.vault.R;
+import se.arctosoft.vault.data.GalleryFile;
 import se.arctosoft.vault.databinding.DialogEditNoteBinding;
 import se.arctosoft.vault.databinding.DialogImportTextBinding;
 import se.arctosoft.vault.databinding.DialogSetIterationCountBinding;
@@ -45,71 +48,23 @@ import se.arctosoft.vault.interfaces.IOnEdited;
 public class Dialogs {
     private static final String TAG = "Dialogs";
 
-    /*public static void showImportGalleryChooseDestinationDialog(FragmentActivity context, Settings settings, int fileCount, IOnDirectorySelected onDirectorySelected) {
-        List<Uri> directories = settings.getGalleryDirectoriesAsUri(false);
-        List<String> names = new ArrayList<>(directories.size());
-        for (int i = 0; i < directories.size(); i++) {
-            names.add(FileStuff.getFilenameWithPathFromUri(directories.get(i)));
-        }
-        DialogImportBinding binding = DialogImportBinding.inflate(context.getLayoutInflater());
-
-        AlertDialog alertDialog = new MaterialAlertDialogBuilder(context)
-                .setTitle(context.getString(R.string.dialog_import_to_title))
-                .setView(binding.getRoot())
-                .setNegativeButton(android.R.string.cancel, null)
-                .setNeutralButton(R.string.dialog_import_to_button_neutral, (dialog, which) -> onDirectorySelected.onOtherDirectory())
-                .show();
-
-        ImportListAdapter adapter = new ImportListAdapter(names, pos -> {
-            alertDialog.dismiss();
-            Uri uri = directories.get(pos);
-
-            DocumentFile directory = DocumentFile.fromTreeUri(context, uri);
-            if (directory == null || !directory.isDirectory() || !directory.exists()) {
-                settings.removeGalleryDirectory(uri);
-                Toaster.getInstance(context).showLong(context.getString(R.string.directory_does_not_exist));
-                showImportGalleryChooseDestinationDialog(context, settings, fileCount, onDirectorySelected);
-            } else {
-                onDirectorySelected.onDirectorySelected(directory, binding.checkbox.isChecked());
-            }
-        });
-        binding.checkbox.setText(context.getResources().getQuantityString(R.plurals.dialog_import_to_delete_original, fileCount));
-        binding.recycler.setLayoutManager(new LinearLayoutManager(context));
-        binding.recycler.setAdapter(adapter);
+    // EN: Interface for password result callback / RU: Интерфейс для обратного вызова результата пароля
+    public interface IOnPasswordEntered {
+        void onResult(String password);
     }
 
-    public static void showImportTextChooseDestinationDialog(FragmentActivity context, Settings settings, IOnDirectorySelected onDirectorySelected) {
-        List<Uri> directories = settings.getGalleryDirectoriesAsUri(false);
-        List<String> names = new ArrayList<>(directories.size());
-        for (int i = 0; i < directories.size(); i++) {
-            names.add(FileStuff.getFilenameWithPathFromUri(directories.get(i)));
-        }
-        DialogImportBinding binding = DialogImportBinding.inflate(context.getLayoutInflater());
+    public interface IOnDirectorySelected {
+        void onDirectorySelected(@NonNull DocumentFile directory, boolean deleteOriginal);
+        void onOtherDirectory();
+    }
 
-        AlertDialog alertDialog = new MaterialAlertDialogBuilder(context)
-                .setTitle(context.getString(R.string.dialog_import_to_title))
-                .setView(binding.getRoot())
-                .setNegativeButton(android.R.string.cancel, null)
-                .setNeutralButton(R.string.dialog_import_to_button_neutral, (dialog, which) -> onDirectorySelected.onOtherDirectory())
-                .show();
+    public interface IOnPositionSelected {
+        void onSelected(int pos);
+    }
 
-        ImportListAdapter adapter = new ImportListAdapter(names, pos -> {
-            alertDialog.dismiss();
-            Uri uri = directories.get(pos);
-
-            DocumentFile directory = DocumentFile.fromTreeUri(context, uri);
-            if (directory == null || !directory.isDirectory() || !directory.exists()) {
-                settings.removeGalleryDirectory(uri);
-                Toaster.getInstance(context).showLong(context.getString(R.string.directory_does_not_exist));
-                showImportTextChooseDestinationDialog(context, settings, onDirectorySelected);
-            } else {
-                onDirectorySelected.onDirectorySelected(directory, false);
-            }
-        });
-        binding.checkbox.setVisibility(View.GONE);
-        binding.recycler.setLayoutManager(new LinearLayoutManager(context));
-        binding.recycler.setAdapter(adapter);
-    }*/
+    public interface IOnEditedIncludedFolders {
+        void onRemoved(@NonNull List<Uri> selectedToRemove);
+    }
 
     public static void showCopyMoveChooseDestinationDialog(FragmentActivity context, Settings settings, int fileCount, IOnDirectorySelected onDirectorySelected) {
         List<Uri> directories = settings.getGalleryDirectoriesAsUri(false);
@@ -134,20 +89,6 @@ public class Dialogs {
                 .setNegativeButton(android.R.string.cancel, null)
                 .setNeutralButton(R.string.dialog_import_to_button_neutral, (dialog, which) -> onDirectorySelected.onOtherDirectory())
                 .show();
-    }
-
-    public interface IOnDirectorySelected {
-        void onDirectorySelected(@NonNull DocumentFile directory, boolean deleteOriginal);
-
-        void onOtherDirectory();
-    }
-
-    public interface IOnPositionSelected {
-        void onSelected(int pos);
-    }
-
-    public interface IOnEditedIncludedFolders {
-        void onRemoved(@NonNull List<Uri> selectedToRemove);
     }
 
     public static void showTextDialog(Context context, String title, String message) {
@@ -215,14 +156,10 @@ public class Dialogs {
         }
         binding.text.addTextChangedListener(new TextWatcher() {
             @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-
-            }
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
 
             @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
-
-            }
+            public void onTextChanged(CharSequence s, int start, int before, int count) {}
 
             @Override
             public void afterTextChanged(Editable s) {
@@ -231,8 +168,7 @@ public class Dialogs {
                     if (ic > 500000) {
                         binding.text.setText(String.valueOf(500000));
                     }
-                } catch (NumberFormatException ignored) {
-                }
+                } catch (NumberFormatException ignored) {}
             }
         });
 
@@ -265,4 +201,22 @@ public class Dialogs {
                 .show();
     }
 
-}
+    // EN: Added password dialog for folders / RU: Добавлен диалог пароля для папок
+    public static void showPasswordDialog(Context context, GalleryFile file, IOnPasswordEntered callback) {
+        final EditText editText = new EditText(context);
+        // EN: Set input type to password / RU: Устанавливаем тип ввода как пароль
+        editText.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        
+        new MaterialAlertDialogBuilder(context)
+                .setTitle(file.getName())
+                .setMessage(R.string.password)
+                .setView(editText)
+                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
+                    if (callback != null) {
+                        callback.onResult(editText.getText().toString());
+                    }
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+            }
