@@ -68,8 +68,8 @@ public class PasswordFragment extends Fragment {
         Settings settings = Settings.getInstance(requireContext());
 
         // --- UI ANIMATIONS ---
-        // Setup elastic logo and shake effect via helper
-        // Настройка "резины" и тряски через хелпер
+        // Setup elastic logo and shake effect
+        // Настройка эффекта "резины" и тряски логотипа
         ViewAnimations.setupElasticLogo(binding.logoContainer, binding.ivLogo);
         binding.logoContainer.setOnClickListener(v -> ViewAnimations.shakeView(binding.ivLogo));
 
@@ -130,14 +130,10 @@ public class PasswordFragment extends Fragment {
                     DirHash finalDirHash = dirHash;
                     if (isAdded()) {
                         requireActivity().runOnUiThread(() -> {
-                            // --- CLEAN NAVIGATION ---
-                            // We use popBackStack without manual alpha animations to avoid "flicker"
-                            // Manual alpha(0) was causing the background to leak through.
-                            // Transitions are now handled by NavGraph XML animations.
-                            
-                            // Мы используем popBackStack без ручной анимации альфы, чтобы убрать моргание.
-                            // Ручная прозрачность вызывала "просачивание" фона.
-                            // Анимации теперь плавно отрабатывают через NavGraph XML.
+                            // --- PRE-EXIT STABILIZATION ---
+                            // Clear focus to ensure keyboard doesn't cause layout flicker
+                            // Убираем фокус, чтобы клавиатура не вызывала моргание лайаута
+                            binding.eTPassword.clearFocus();
                             
                             passwordViewModel.setDirHash(finalDirHash);
                             binding.eTPassword.setText(null);
@@ -145,6 +141,8 @@ public class PasswordFragment extends Fragment {
                             savedStateHandle.set(LOGIN_SUCCESSFUL, true);
                             
                             if (isAdded()) {
+                                // Exit will be handled by accelerated XML animations in NavGraph
+                                // Выход будет обработан ускоренными XML-анимациями в NavGraph
                                 NavHostFragment.findNavController(this).popBackStack();
                             }
                         });
@@ -217,4 +215,4 @@ public class PasswordFragment extends Fragment {
         super.onDestroyView();
         binding = null;
     }
-    }
+}
