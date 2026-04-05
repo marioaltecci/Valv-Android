@@ -3,13 +3,16 @@ package se.arctosoft.vault;
 import static androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG;
 
 import android.animation.ObjectAnimator;
+import android.annotation.SuppressLint;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.OvershootInterpolator;
 import android.view.inputmethod.EditorInfo;
 
 import androidx.annotation.NonNull;
@@ -48,12 +51,22 @@ public class PasswordFragment extends Fragment {
     private BiometricPrompt biometricPrompt;
     private BiometricPrompt.PromptInfo promptInfo;
 
+    // --- НАСТРОЙКИ ЭФФЕКТА "ТУГОЙ РЕЗИНЫ" ---
+    private float lastTouchY;
+    
+    // Уменьшили сопротивление (было 0.15f), чтобы тянулся легче и "резиновее"
+    private final float RESISTANCE = 0.10f; 
+    
+    // Увеличили максимальный ход (было 30f), чтобы тянулся дальше
+    private final float MAX_DRAG = 45f; 
+
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         binding = FragmentPasswordBinding.inflate(inflater, container, false);
         return binding.getRoot();
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         passwordViewModel = new ViewModelProvider(requireActivity()).get(PasswordViewModel.class);
@@ -65,10 +78,40 @@ public class PasswordFragment extends Fragment {
 
         Settings settings = Settings.getInstance(requireContext());
 
-        // --- ЛОГИКА ТРЯСКИ ЛОГОТИПА ---
-        // Нажимаем на контейнер (чтобы область клика была большой), 
-        // но трясем только саму иконку ivLogo, чтобы рамка не двигалась.
+        // --- ЛОГИКА ТРЯСКИ И РАЗТЯГИВАНИЯ ЛОГОТИПА ---
         binding.logoContainer.setOnClickListener(v -> shakeView(binding.ivLogo));
+
+        binding.logoContainer.setOnTouchListener((v, event) -> {
+            switch (event.getAction()) {
+                case MotionEvent.ACTION_DOWN:
+                    lastTouchY = event.getRawY();
+                    return true;
+                case MotionEvent.ACTION_MOVE:
+                    float deltaY = event.getRawY() - lastTouchY;
+                    if (deltaY > 0) {
+                        // Вычисляем drag с учетом новых, более свободных настроек
+                        float drag = Math.min(deltaY * RESISTANCE, MAX_DRAG);
+                        v.setTranslationY(drag);
+                        
+                        // Чуть сильнее деформируем при растяжении для эффекта мягкой резины
+                        v.setScaleY(1f + (drag * 0.003f)); 
+                    }
+                    break;
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    float currentY = v.getTranslationY();
+                    
+                    // Хлесткий возврат назад
+                    v.animate().translationY(0).scaleY(1f)
+                            .setInterpolator(new OvershootInterpolator(4f))
+                            .setDuration(400).start();
+                            
+                    // Порог клика (было 15) чуть увеличим, т.к. ход стал больше
+                    if (currentY < 20) v.performClick();
+                    break;
+            }
+            return true;
+        });
 
         binding.btnUnlock.setEnabled(false);
 
@@ -98,6 +141,7 @@ public class PasswordFragment extends Fragment {
 
         binding.eTPassword.setOnEditorActionListener((v, actionId, event) -> {
             if (actionId == EditorInfo.IME_ACTION_GO || actionId == EditorInfo.IME_ACTION_DONE) {
+                // ИСПРАВЛЕНО: используем isEnabled()
                 if (binding.btnUnlock.isEnabled()) {
                     binding.btnUnlock.performClick();
                 }
@@ -208,7 +252,6 @@ public class PasswordFragment extends Fragment {
     }
 
     private void shakeView(View view) {
-        // Увеличил амплитуду до 20, чтобы "в воздухе" смотрелось эффектнее
         ObjectAnimator shaker = ObjectAnimator.ofFloat(view, "translationX", 0, 20, -20, 20, -20, 15, -15, 0);
         shaker.setDuration(400);
         shaker.start();
@@ -219,4 +262,4 @@ public class PasswordFragment extends Fragment {
         super.onDestroyView();
         binding = null;
     }
-}
+                        }
