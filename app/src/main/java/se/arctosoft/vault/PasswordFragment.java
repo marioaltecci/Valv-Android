@@ -51,7 +51,7 @@ public class PasswordFragment extends Fragment {
     private Settings settings;
     
     private boolean isCreateMode = false;
-    private Uri targetFileUri; // EN: URI of the file from SAF / RU: URI файла из SAF
+    private Uri targetDirectoryUri; // EN: Selected directory URI / RU: URI выбранной директории
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -65,11 +65,11 @@ public class PasswordFragment extends Fragment {
         passwordViewModel = new ViewModelProvider(requireActivity()).get(PasswordViewModel.class);
         settings = Settings.getInstance(requireContext());
 
-        // EN: Get mode and file URI from arguments / RU: Получаем режим и URI файла из аргументов
+        // EN: Get mode and directory URI from arguments / RU: Получаем режим и URI папки из аргументов
         if (getArguments() != null) {
             isCreateMode = getArguments().getBoolean("is_create_mode", false);
-            String uriString = getArguments().getString("file_uri");
-            if (uriString != null) targetFileUri = Uri.parse(uriString);
+            String uriString = getArguments().getString("file_uri"); // EN: Using the same key from StartFragment / RU: Используем тот же ключ из StartFragment
+            if (uriString != null) targetDirectoryUri = Uri.parse(uriString);
         }
 
         savedStateHandle = Navigation.findNavController(view)
@@ -83,8 +83,8 @@ public class PasswordFragment extends Fragment {
 
         // --- PASSWORD INPUT LOGIC ---
         binding.btnUnlock.setEnabled(false);
-        // EN: Update button text based on mode / RU: Обновляем текст кнопки в зависимости от режима
-        binding.btnUnlock.setText(isCreateMode ? "Create" : "Unlock");
+        // EN: Update button text to match the task / RU: Обновляем текст кнопки под задачу
+        binding.btnUnlock.setText(isCreateMode ? "Create Vault" : "Unlock");
 
         binding.eTPassword.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
@@ -134,26 +134,27 @@ public class PasswordFragment extends Fragment {
     private void performUnlock(char[] password, boolean isBiometric) {
         new Thread(() -> {
             try {
+                // EN: Important: In Create mode, we check if this password already exists / RU: Важно: в режиме создания проверяем, не существует ли уже такой пароль
                 DirHash dirHash = settings.getDirHashForKey(password);
                 
-                // EN: Validate existence if in Open mode / RU: Проверяем существование, если в режиме "Открыть"
                 if (!isCreateMode && dirHash == null) {
                     showError("Vault not found or wrong password");
                     return;
                 }
 
-                // EN: If creating, generate salt and handle file URI / RU: Если создаем, генерим соль и работаем с URI
                 if (isCreateMode) {
+                    // EN: Generate new security entry / RU: Генерируем новую запись безопасности
                     byte[] salt = Encryption.generateSecureSalt(Encryption.SALT_LENGTH);
                     dirHash = Encryption.getDirHash(salt, password);
+                    
                     if (dirHash != null) {
-                        // EN: Save hash entry and link to file URI if needed
-                        // RU: Сохраняем запись хеша и привязываем к URI файла, если нужно
+                        // EN: Save hash to keys preference / RU: Сохраняем хеш в настройки ключей
                         settings.createDirHashEntry(salt, dirHash.hash());
-                        if (targetFileUri != null) {
-                            // EN: Store this URI in settings as current vault
-                            // RU: Сохраняем этот URI в настройках как текущее хранилище
-                            settings.setVaultUri(targetFileUri.toString());
+                        
+                        if (targetDirectoryUri != null) {
+                            // EN: Link the selected folder to this password's logic 
+                            // RU: Привязываем выбранную папку к логике этого пароля
+                            settings.addGalleryDirectory(targetDirectoryUri, true, null);
                         }
                     } else {
                         throw new Exception("Hash failed");
@@ -273,4 +274,4 @@ public class PasswordFragment extends Fragment {
         super.onDestroyView();
         binding = null;
     }
-                }
+}
