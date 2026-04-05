@@ -21,14 +21,19 @@ import se.arctosoft.vault.utils.ViewAnimations;
 public class StartFragment extends Fragment {
     private FragmentStartBinding binding;
 
-    // EN: Launcher for system file creation / RU: Лаунчер для системного создания файла
-    private final ActivityResultLauncher<Intent> createDocLauncher = registerForActivityResult(
+    // EN: Launcher for selecting a directory / RU: Лаунчер для выбора папки
+    private final ActivityResultLauncher<Intent> openTreeLauncher = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
             result -> {
                 if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
-                    Uri uri = result.getData().getData();
-                    if (uri != null) {
-                        goToPasswordScreen(uri, true);
+                    Uri treeUri = result.getData().getData();
+                    if (treeUri != null) {
+                        // EN: Persist permissions to access the folder later
+                        // RU: Сохраняем права доступа к папке на будущее
+                        int takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION;
+                        requireContext().getContentResolver().takePersistableUriPermission(treeUri, takeFlags);
+                        
+                        goToPasswordScreen(treeUri, true);
                     }
                 }
             }
@@ -45,24 +50,22 @@ public class StartFragment extends Fragment {
         super.onViewCreated(view, savedInstanceState);
         ViewAnimations.setupElasticLogo(binding.headerArea, binding.ivLogo);
 
-        // EN: Open existing vault / RU: Открыть существующий (тут тоже можно добавить SAF позже)
+        // EN: Open existing vault (logic remains the same) / RU: Открыть существующее (логика та же)
         binding.btnOpenVault.setOnClickListener(v -> goToPasswordScreen(null, false));
 
-        // EN: Create new vault via System File Picker / RU: Создать новый через системный менеджер
+        // EN: Pick a folder where the app will create encrypted files
+        // RU: Выбираем папку, где приложение будет создавать зашифрованные файлы
         binding.btnCreateVault.setOnClickListener(v -> {
-            Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
-            intent.addCategory(Intent.CATEGORY_OPENABLE);
-            intent.setType("application/octet-stream"); // EN: Binary file / RU: Бинарный файл
-            intent.putExtra(Intent.EXTRA_TITLE, "new_vault.vault");
-            createDocLauncher.launch(intent);
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+            openTreeLauncher.launch(intent);
         });
     }
 
-    private void goToPasswordScreen(Uri fileUri, boolean isCreate) {
+    private void goToPasswordScreen(Uri folderUri, boolean isCreate) {
         Bundle args = new Bundle();
         args.putBoolean("is_create_mode", isCreate);
-        if (fileUri != null) {
-            args.putString("file_uri", fileUri.toString());
+        if (folderUri != null) {
+            args.putString("file_uri", folderUri.toString());
         }
         Navigation.findNavController(requireView()).navigate(R.id.action_start_to_password, args);
     }
