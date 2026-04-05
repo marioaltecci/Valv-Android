@@ -48,7 +48,7 @@ import se.arctosoft.vault.interfaces.IOnEdited;
 public class Dialogs {
     private static final String TAG = "Dialogs";
 
-    // EN: Interface for password result callback / RU: Интерфейс для обратного вызова результата пароля
+    // EN: Interface for password result callback / RU: Интерфейс для колбэка результата пароля
     public interface IOnPasswordEntered {
         void onResult(String password);
     }
@@ -201,14 +201,15 @@ public class Dialogs {
                 .show();
     }
 
-    // EN: Added password dialog for folders / RU: Добавлен диалог пароля для папок
+    // EN: Show password dialog for a specific file/folder / RU: Показать диалог ввода пароля для файла или папки
     public static void showPasswordDialog(Context context, GalleryFile file, IOnPasswordEntered callback) {
         final EditText editText = new EditText(context);
-        // EN: Set input type to password / RU: Устанавливаем тип ввода как пароль
+        // EN: Set input to password style / RU: Установка стиля ввода "пароль"
         editText.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
         
         new MaterialAlertDialogBuilder(context)
                 .setTitle(file.getName())
+                // EN: Using the R.string.password resource we just added / RU: Используем ресурс R.string.password
                 .setMessage(R.string.password)
                 .setView(editText)
                 .setPositiveButton(android.R.string.ok, (dialog, which) -> {
@@ -219,4 +220,4 @@ public class Dialogs {
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
     }
-            }
+                                          }
