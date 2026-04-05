@@ -53,9 +53,7 @@ android {
         buildConfig = true
     }
     dependenciesInfo {
-        // Disables dependency metadata when building APKs.
         includeInApk = false
-        // Disables dependency metadata when building Android App Bundles.
         includeInBundle = false
     }
     kotlinOptions {
@@ -77,6 +75,7 @@ dependencies {
     implementation(libs.preference)
     implementation(libs.activity)
     implementation(libs.biometrics)
+    implementation(libs.swiperefreshlayout)
 
     implementation(libs.security.crypto)
     implementation(libs.media3.exoplayer)
@@ -91,11 +90,10 @@ dependencies {
 
 aboutLibraries {
     configPath = "config"
-    // Remove the "generated" timestamp to allow for reproducible builds
     excludeFields = arrayOf("generated")
 }
 
-tasks.whenTaskAdded { // https://gist.github.com/obfusk/61046e09cee352ae6dd109911534b12e#fix-proposed-by-linsui-disable-baseline-profiles
+tasks.whenTaskAdded { 
     if (name.contains("ArtProfile")) {
         enabled = false
     }
