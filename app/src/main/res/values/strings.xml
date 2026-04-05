@@ -8,6 +8,7 @@
     <string name="load_files">Load encrypted thumbnails</string>
     <string name="loading">loading</string>
     <string name="help">Help</string>
+    <string name="password">Password</string>
     <string name="delete">Delete</string>
     <string name="export">Export</string>
     <string name="add_edit_note">Add/edit note</string>
