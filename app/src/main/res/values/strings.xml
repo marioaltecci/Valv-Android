@@ -1,5 +1,6 @@
 <resources>
     <string name="app_name">ValvX</string>
+    <string name="recent_folders">Recent Folders</string>
     <string name="gallery_encrypt_file">Encrypt file</string>
     <string name="gallery_decrypt_file">Decrypt file</string>
     <string name="title_activity_main">MainActivity</string>
