@@ -18,7 +18,6 @@ public class StartFragment extends Fragment {
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-        // EN: Inflate the layout using view binding / RU: Инфлейтим разметку через view binding
         binding = FragmentStartBinding.inflate(inflater, container, false);
         return binding.getRoot();
     }
@@ -27,20 +26,20 @@ public class StartFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        // EN: Setup logo animations for One UI consistency / RU: Настройка анимации логотипа для единообразия One UI
+        // EN: Setup logo animation / RU: Настройка анимации логотипа
         ViewAnimations.setupElasticLogo(binding.headerArea, binding.ivLogo);
 
-        // EN: Open existing vault action / RU: Действие для открытия существующего хранилища
+        // EN: Navigate to open existing vault / RU: Переход для открытия существующего хранилища
         binding.btnOpenVault.setOnClickListener(v -> {
             Bundle args = new Bundle();
-            args.putBoolean("is_create_mode", false); // EN: Set mode to Open / RU: Режим "Открыть"
+            args.putBoolean("is_create_mode", false);
             Navigation.findNavController(v).navigate(R.id.action_start_to_password, args);
         });
 
-        // EN: Create new vault action / RU: Действие для создания нового хранилища
+        // EN: Navigate to create new vault / RU: Переход для создания нового хранилища
         binding.btnCreateVault.setOnClickListener(v -> {
             Bundle args = new Bundle();
-            args.putBoolean("is_create_mode", true); // EN: Set mode to Create / RU: Режим "Создать"
+            args.putBoolean("is_create_mode", true);
             Navigation.findNavController(v).navigate(R.id.action_start_to_password, args);
         });
     }
@@ -48,7 +47,6 @@ public class StartFragment extends Fragment {
     @Override
     public void onDestroyView() {
         super.onDestroyView();
-        // EN: Clean up binding to prevent memory leaks / RU: Очищаем binding для предотвращения утечек памяти
         binding = null;
     }
 }
