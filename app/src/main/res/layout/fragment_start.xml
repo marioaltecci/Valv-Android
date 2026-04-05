@@ -3,7 +3,8 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="?attr/colorSurface">
 
     <LinearLayout
         android:id="@+id/headerArea"
@@ -16,17 +17,18 @@
 
         <ImageView
             android:id="@+id/ivLogo"
-            android:layout_width="100dp"
-            android:layout_height="100dp"
-            android:src="@drawable/ic_vault_logo" />
+            android:layout_width="120dp"
+            android:layout_height="120dp"
+            android:src="@drawable/logo" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="16dp"
             android:text="Vault"
-            android:textSize="34sp"
-            android:textStyle="bold" />
+            android:textSize="32sp"
+            android:textStyle="bold"
+            android:textColor="?attr/colorOnSurface" />
     </LinearLayout>
 
     <LinearLayout
@@ -41,10 +43,11 @@
             android:layout_width="match_parent"
             android:layout_height="64dp"
             android:text="Open Vault"
-            android:textStyle="bold"
             android:textColor="#FFFFFF"
+            android:textStyle="bold"
+            android:textAllCaps="false"
             app:backgroundTint="@color/primary_color"
-            app:cornerRadius="18dp" />
+            app:cornerRadius="16dp" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnCreateVault"
@@ -52,9 +55,10 @@
             android:layout_width="match_parent"
             android:layout_height="64dp"
             android:layout_marginTop="12dp"
-            android:text="Create New Vault"
+            android:text="Create Vault"
             android:textStyle="bold"
-            app:cornerRadius="18dp" />
+            android:textAllCaps="false"
+            app:cornerRadius="16dp" />
 
     </LinearLayout>
 
