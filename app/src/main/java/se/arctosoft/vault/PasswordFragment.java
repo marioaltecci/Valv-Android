@@ -3,13 +3,16 @@ package se.arctosoft.vault;
 import static androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG;
 
 import android.animation.ObjectAnimator;
+import android.annotation.SuppressLint;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.OvershootInterpolator;
 import android.view.inputmethod.EditorInfo;
 
 import androidx.annotation.NonNull;
@@ -48,12 +51,18 @@ public class PasswordFragment extends Fragment {
     private BiometricPrompt biometricPrompt;
     private BiometricPrompt.PromptInfo promptInfo;
 
+    // Переменные для эффекта "тугой резины"
+    private float lastTouchY;
+    private final float RESISTANCE = 0.30f; // Коэффициент сопротивления (чем меньше, тем "туже")
+    private final int CLICK_THRESHOLD = 15; // Порог в пикселях для отличия тапа от тяги
+
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         binding = FragmentPasswordBinding.inflate(inflater, container, false);
         return binding.getRoot();
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         passwordViewModel = new ViewModelProvider(requireActivity()).get(PasswordViewModel.class);
@@ -65,10 +74,59 @@ public class PasswordFragment extends Fragment {
 
         Settings settings = Settings.getInstance(requireContext());
 
-        // --- ЛОГИКА ТРЯСКИ ЛОГОТИПА ---
-        // Нажимаем на контейнер (чтобы область клика была большой), 
-        // но трясем только саму иконку ivLogo, чтобы рамка не двигалась.
+        // --- ЛОГИКА ТРЯСКИ И РЕЗИНОВОГО ЛОГОТИПА ---
+        
         binding.logoContainer.setOnClickListener(v -> shakeView(binding.ivLogo));
+
+        binding.logoContainer.setOnTouchListener((v, event) -> {
+            switch (event.getAction()) {
+                case MotionEvent.ACTION_DOWN:
+                    lastTouchY = event.getRawY();
+                    return true;
+
+                case MotionEvent.ACTION_MOVE:
+                    float deltaY = event.getRawY() - lastTouchY;
+                    if (deltaY > 0) { // Тянем только вниз
+                        float dragAmount = deltaY * RESISTANCE;
+                        
+                        // Двигаем и растягиваем логотип
+                        v.setTranslationY(dragAmount);
+                        v.setScaleY(1f + (dragAmount * 0.0025f)); // Слегка деформируем при растяжении
+
+                        // Слегка продавливаем текст под ним для тактильности
+                        float textPush = dragAmount * 0.6f;
+                        binding.tvTitle.setTranslationY(textPush);
+                        binding.tvSubtitle.setTranslationY(textPush);
+                    }
+                    break;
+
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    float finalY = v.getTranslationY();
+
+                    // Пружинистый возврат на место (OvershootInterpolator дает тот самый "отскок")
+                    v.animate().translationY(0).scaleY(1f)
+                            .setInterpolator(new OvershootInterpolator(3.0f))
+                            .setDuration(500).start();
+                    
+                    binding.tvTitle.animate().translationY(0)
+                            .setInterpolator(new OvershootInterpolator(3.0f))
+                            .setDuration(500).start();
+                    
+                    binding.tvSubtitle.animate().translationY(0)
+                            .setInterpolator(new OvershootInterpolator(3.0f))
+                            .setDuration(500).start();
+
+                    // Если сдвиг был маленьким — считаем это кликом и трясем
+                    if (finalY < CLICK_THRESHOLD) {
+                        v.performClick();
+                    }
+                    break;
+            }
+            return true;
+        });
+
+        // --- ЛОГИКА ПАРОЛЯ ---
 
         binding.btnUnlock.setEnabled(false);
 
@@ -128,7 +186,7 @@ public class PasswordFragment extends Fragment {
                         if (dirHash != null) {
                             settings.createDirHashEntry(salt, dirHash.hash());
                         } else {
-                            throw new Exception("Не удалось создать хэш директории");
+                            throw new Exception("Hash creation failed");
                         }
                     }
 
@@ -143,7 +201,7 @@ public class PasswordFragment extends Fragment {
                         });
                     }
                 } catch (Exception e) {
-                    Log.e(TAG, "Критическая ошибка разблокировки", e);
+                    Log.e(TAG, "Unlock error", e);
                     if (isAdded()) {
                         requireActivity().runOnUiThread(() -> {
                             int currentLen = binding.eTPassword.length();
@@ -160,6 +218,7 @@ public class PasswordFragment extends Fragment {
 
         binding.btnHelp.setOnClickListener(v -> Dialogs.showTextDialog(requireContext(), null, getString(R.string.launcher_help_message)));
 
+        // --- БИОМЕТРИЯ ---
         BiometricManager biometricManager = BiometricManager.from(requireContext());
         if (settings.isBiometricsEnabled() && biometricManager.canAuthenticate(BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS) {
             Executor executor = ContextCompat.getMainExecutor(requireContext());
@@ -193,7 +252,7 @@ public class PasswordFragment extends Fragment {
                     Cipher cipher = Encryption.getBiometricCipher();
                     SecretKey secretKey = Encryption.getOrGenerateBiometricSecretKey();
                     byte[] iv = settings.getBiometricsIv();
-                    if (iv == null) throw new Exception("IV не найден");
+                    if (iv == null) throw new Exception("IV not found");
                     cipher.init(Cipher.DECRYPT_MODE, secretKey, new IvParameterSpec(iv));
                     biometricPrompt.authenticate(promptInfo, new BiometricPrompt.CryptoObject(cipher));
                 } catch (Exception e) {
@@ -208,7 +267,6 @@ public class PasswordFragment extends Fragment {
     }
 
     private void shakeView(View view) {
-        // Увеличил амплитуду до 20, чтобы "в воздухе" смотрелось эффектнее
         ObjectAnimator shaker = ObjectAnimator.ofFloat(view, "translationX", 0, 20, -20, 20, -20, 15, -15, 0);
         shaker.setDuration(400);
         shaker.start();
