@@ -6,7 +6,6 @@ import android.annotation.SuppressLint;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -40,7 +39,6 @@ import se.arctosoft.vault.utils.ViewAnimations;
 import se.arctosoft.vault.viewmodel.PasswordViewModel;
 
 public class PasswordFragment extends Fragment {
-    private static final String TAG = "PasswordFragment";
     public static String LOGIN_SUCCESSFUL = "LOGIN_SUCCESSFUL";
 
     private PasswordViewModel passwordViewModel;
@@ -50,6 +48,7 @@ public class PasswordFragment extends Fragment {
     private BiometricPrompt biometricPrompt;
     private BiometricPrompt.PromptInfo promptInfo;
     private Settings settings;
+    private boolean isCreateMode = false;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -63,21 +62,27 @@ public class PasswordFragment extends Fragment {
         passwordViewModel = new ViewModelProvider(requireActivity()).get(PasswordViewModel.class);
         settings = Settings.getInstance(requireContext());
 
+        // EN: Get mode from arguments (Create vs Open) / RU: Получаем режим из аргументов (Создать или Открыть)
+        if (getArguments() != null) {
+            isCreateMode = getArguments().getBoolean("is_create_mode", false);
+        }
+
         savedStateHandle = Navigation.findNavController(view)
                 .getPreviousBackStackEntry()
                 .getSavedStateHandle();
         savedStateHandle.set(LOGIN_SUCCESSFUL, false);
 
-        // --- UI ANIMATIONS ---
+        // --- UI SETUP ---
         ViewAnimations.setupElasticLogo(binding.logoContainer, binding.ivLogo);
-        binding.logoContainer.setOnClickListener(v -> ViewAnimations.shakeView(binding.ivLogo));
+        
+        // EN: Back button logic / RU: Логика кнопки "Назад"
+        binding.btnBack.setOnClickListener(v -> Navigation.findNavController(v).popBackStack());
 
         // --- PASSWORD INPUT LOGIC ---
         binding.btnUnlock.setEnabled(false);
         binding.eTPassword.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
-            
             @Override
             public void afterTextChanged(Editable s) {
                 int length = (s != null) ? s.length() : 0;
@@ -111,12 +116,63 @@ public class PasswordFragment extends Fragment {
 
         binding.btnHelp.setOnClickListener(v -> Dialogs.showTextDialog(requireContext(), null, getString(R.string.launcher_help_message)));
 
-        // --- BIOMETRICS SETUP ---
+        // --- BIOMETRICS ---
         BiometricManager biometricManager = BiometricManager.from(requireContext());
-        if (settings.isBiometricsEnabled() && biometricManager.canAuthenticate(BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS) {
+        if (!isCreateMode && settings.isBiometricsEnabled() && biometricManager.canAuthenticate(BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS) {
             setupBiometrics();
         } else {
             binding.biometrics.setVisibility(View.GONE);
+        }
+    }
+
+    private void performUnlock(char[] password, boolean isBiometric) {
+        new Thread(() -> {
+            try {
+                DirHash dirHash = settings.getDirHashForKey(password);
+                
+                // EN: If opening existing but no hash found / RU: Если открываем старое, но хеш не найден
+                if (!isCreateMode && dirHash == null) {
+                    showError("Vault not found or wrong password");
+                    return;
+                }
+
+                // EN: If creating new vault / RU: Если создаем новое хранилище
+                if (isCreateMode) {
+                    byte[] salt = Encryption.generateSecureSalt(Encryption.SALT_LENGTH);
+                    dirHash = Encryption.getDirHash(salt, password);
+                    if (dirHash != null) {
+                        settings.createDirHashEntry(salt, dirHash.hash());
+                    } else {
+                        throw new Exception("Hash generation failed");
+                    }
+                }
+
+                final DirHash finalDirHash = dirHash;
+                if (isAdded()) {
+                    requireActivity().runOnUiThread(() -> {
+                        binding.eTPassword.clearFocus();
+                        passwordViewModel.setPassword(password);
+                        passwordViewModel.setDirHash(finalDirHash);
+                        binding.eTPassword.setText(null);
+                        MainActivity.GLIDE_KEY = System.currentTimeMillis();
+                        savedStateHandle.set(LOGIN_SUCCESSFUL, true);
+                        binding.getRoot().postDelayed(() -> {
+                            if (isAdded()) NavHostFragment.findNavController(this).popBackStack();
+                        }, 50);
+                    });
+                }
+            } catch (Exception e) {
+                showError("Authentication error");
+            }
+        }).start();
+    }
+
+    private void showError(String message) {
+        if (isAdded()) {
+            requireActivity().runOnUiThread(() -> {
+                toggleLoading(false, false);
+                Toaster.getInstance(requireActivity()).showShort(message);
+            });
         }
     }
 
@@ -136,7 +192,7 @@ public class PasswordFragment extends Fragment {
                             performUnlock(chars, true);
                         } catch (Exception e) {
                             toggleLoading(false, true);
-                            Toaster.getInstance(requireActivity()).showShort("Biometric decryption error");
+                            Toaster.getInstance(requireActivity()).showShort("Biometric error");
                         }
                     }
                 });
@@ -170,61 +226,19 @@ public class PasswordFragment extends Fragment {
         binding.biometrics.post(() -> binding.biometrics.performClick());
     }
 
-    private void performUnlock(char[] password, boolean isBiometric) {
-        passwordViewModel.setPassword(password);
-        new Thread(() -> {
-            try {
-                DirHash dirHash = settings.getDirHashForKey(password);
-                if (dirHash == null) {
-                    byte[] salt = Encryption.generateSecureSalt(Encryption.SALT_LENGTH);
-                    dirHash = Encryption.getDirHash(salt, password);
-                    if (dirHash != null) {
-                        settings.createDirHashEntry(salt, dirHash.hash());
-                    } else {
-                        throw new Exception("Hash error");
-                    }
-                }
-                DirHash finalDirHash = dirHash;
-                if (isAdded()) {
-                    requireActivity().runOnUiThread(() -> {
-                        binding.eTPassword.clearFocus();
-                        passwordViewModel.setDirHash(finalDirHash);
-                        binding.eTPassword.setText(null);
-                        MainActivity.GLIDE_KEY = System.currentTimeMillis();
-                        savedStateHandle.set(LOGIN_SUCCESSFUL, true);
-                        binding.getRoot().postDelayed(() -> {
-                            if (isAdded()) NavHostFragment.findNavController(this).popBackStack();
-                        }, 50);
-                    });
-                }
-            } catch (Exception e) {
-                if (isAdded()) {
-                    requireActivity().runOnUiThread(() -> {
-                        toggleLoading(false, isBiometric);
-                        Toaster.getInstance(requireActivity()).showShort("Authentication error");
-                    });
-                }
-            }
-        }).start();
-    }
-
     private void toggleLoading(boolean isLoading, boolean isBiometric) {
         if (isLoading) {
             CircularProgressDrawable progress = new CircularProgressDrawable(requireContext());
             progress.setStyle(CircularProgressDrawable.DEFAULT);
-            
-            // EN: Blue for biometric (light bg), White for button (blue bg)
-            // RU: Синий для биометрии (светлый фон), Белый для кнопки (синий фон)
-            int color = isBiometric 
-                ? ContextCompat.getColor(requireContext(), R.color.primary_color) 
-                : 0xFFFFFFFF;
-                
+            // EN: Blue for biometric, White for button / RU: Синий для биометрии, Белый для кнопки
+            int color = isBiometric ? ContextCompat.getColor(requireContext(), R.color.primary_color) : 0xFFFFFFFF;
             progress.setColorSchemeColors(color);
             progress.setStrokeWidth(8f);
             progress.setCenterRadius(20f);
             progress.start();
 
             binding.eTPassword.setEnabled(false);
+            binding.btnBack.setEnabled(false);
             if (isBiometric) {
                 binding.biometrics.setIcon(progress);
                 binding.btnUnlock.setEnabled(false);
@@ -238,6 +252,7 @@ public class PasswordFragment extends Fragment {
             binding.btnUnlock.setEnabled(binding.eTPassword.length() > 0);
             binding.biometrics.setEnabled(true);
             binding.eTPassword.setEnabled(true);
+            binding.btnBack.setEnabled(true);
         }
     }
 
@@ -246,4 +261,4 @@ public class PasswordFragment extends Fragment {
         super.onDestroyView();
         binding = null;
     }
-                                              }
+                    }
