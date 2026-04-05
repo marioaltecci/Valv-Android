@@ -10,7 +10,6 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.animation.DecelerateInterpolator;
 import android.view.inputmethod.EditorInfo;
 
 import androidx.annotation.NonNull;
@@ -68,15 +67,13 @@ public class PasswordFragment extends Fragment {
 
         Settings settings = Settings.getInstance(requireContext());
 
-        // --- UI ANIMATIONS (REFACTORED) ---
-        // Setup elastic logo effect and shake on error using our new helper class
-        // Настройка эффекта "резины" и тряски при ошибке через наш новый хелпер
+        // --- UI ANIMATIONS ---
+        // Setup elastic logo and shake effect via helper
+        // Настройка "резины" и тряски через хелпер
         ViewAnimations.setupElasticLogo(binding.logoContainer, binding.ivLogo);
         binding.logoContainer.setOnClickListener(v -> ViewAnimations.shakeView(binding.ivLogo));
 
         // --- PASSWORD INPUT LOGIC ---
-        // Basic validation: Disable button if empty or too long
-        // Базовая валидация: выключаем кнопку, если поле пустое или слишком длинное
         binding.btnUnlock.setEnabled(false);
         binding.eTPassword.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
@@ -108,8 +105,6 @@ public class PasswordFragment extends Fragment {
             int length = binding.eTPassword.length();
             if (length == 0 || length > 60) return;
 
-            // Update UI state for processing
-            // Обновляем состояние интерфейса для процесса обработки
             binding.btnUnlock.setEnabled(false);
             binding.eTPassword.setEnabled(false);
             binding.biometrics.setEnabled(false);
@@ -135,26 +130,23 @@ public class PasswordFragment extends Fragment {
                     DirHash finalDirHash = dirHash;
                     if (isAdded()) {
                         requireActivity().runOnUiThread(() -> {
-                            // --- PREMIUM EXIT TRANSITION ---
-                            // Smoothly shrink and fade out the fragment to prevent "jerk" effect
-                            // Плавно уменьшаем и растворяем фрагмент, чтобы избежать эффекта "рывка"
-                            binding.getRoot().animate()
-                                    .alpha(0f)
-                                    .scaleX(0.95f)
-                                    .scaleY(0.95f)
-                                    .setDuration(200)
-                                    .setInterpolator(new DecelerateInterpolator())
-                                    .withEndAction(() -> {
-                                        passwordViewModel.setDirHash(finalDirHash);
-                                        binding.eTPassword.setText(null);
-                                        MainActivity.GLIDE_KEY = System.currentTimeMillis();
-                                        savedStateHandle.set(LOGIN_SUCCESSFUL, true);
-                                        
-                                        // Final jump to file list
-                                        // Финальный переход к списку файлов
-                                        NavHostFragment.findNavController(this).popBackStack();
-                                    })
-                                    .start();
+                            // --- CLEAN NAVIGATION ---
+                            // We use popBackStack without manual alpha animations to avoid "flicker"
+                            // Manual alpha(0) was causing the background to leak through.
+                            // Transitions are now handled by NavGraph XML animations.
+                            
+                            // Мы используем popBackStack без ручной анимации альфы, чтобы убрать моргание.
+                            // Ручная прозрачность вызывала "просачивание" фона.
+                            // Анимации теперь плавно отрабатывают через NavGraph XML.
+                            
+                            passwordViewModel.setDirHash(finalDirHash);
+                            binding.eTPassword.setText(null);
+                            MainActivity.GLIDE_KEY = System.currentTimeMillis();
+                            savedStateHandle.set(LOGIN_SUCCESSFUL, true);
+                            
+                            if (isAdded()) {
+                                NavHostFragment.findNavController(this).popBackStack();
+                            }
                         });
                     }
                 } catch (Exception e) {
@@ -175,8 +167,6 @@ public class PasswordFragment extends Fragment {
         binding.btnHelp.setOnClickListener(v -> Dialogs.showTextDialog(requireContext(), null, getString(R.string.launcher_help_message)));
 
         // --- BIOMETRICS SETUP ---
-        // English UI and dual-language comments for maintenance
-        // Английский интерфейс и двуязычные комментарии для удобства
         BiometricManager biometricManager = BiometricManager.from(requireContext());
         if (settings.isBiometricsEnabled() && biometricManager.canAuthenticate(BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS) {
             Executor executor = ContextCompat.getMainExecutor(requireContext());
@@ -216,8 +206,6 @@ public class PasswordFragment extends Fragment {
                 }
             });
             
-            // Auto-trigger biometrics on start
-            // Авто-вызов биометрии при старте
             binding.biometrics.post(() -> binding.biometrics.performClick());
         } else {
             binding.biometrics.setVisibility(View.GONE);
@@ -229,4 +217,4 @@ public class PasswordFragment extends Fragment {
         super.onDestroyView();
         binding = null;
     }
-                        }
+    }
