@@ -135,22 +135,25 @@ public class PasswordFragment extends Fragment {
             try {
                 DirHash dirHash = settings.getDirHashForKey(password);
                 
+                // EN: If opening existing but no hash found / RU: Если открываем, но хеш не найден
                 if (!isCreateMode && dirHash == null) {
                     showError("Vault not found or wrong password");
                     return;
                 }
 
+                // EN: Handle new vault creation / RU: Обработка создания нового хранилища
                 if (isCreateMode) {
                     byte[] salt = Encryption.generateSecureSalt(Encryption.SALT_LENGTH);
                     dirHash = Encryption.getDirHash(salt, password);
                     
                     if (dirHash != null) {
-                        // EN: Register hash and prepare singleton / RU: Регистрируем хеш и готовим синглтон
+                        // EN: Register new hash in settings / RU: Регистрируем новый хеш в настройках
                         settings.createDirHashEntry(salt, dirHash.hash());
+                        
+                        // EN: Important: set DirHash to singleton before adding directory / RU: Важно: ставим DirHash в синглтон перед добавлением папки
                         Password.getInstance().setDirHash(dirHash);
                         
                         if (targetDirectoryUri != null) {
-                            // EN: Link folder to app logic / RU: Привязываем папку к логике приложения
                             settings.addGalleryDirectory(targetDirectoryUri, true, null);
                         }
                     } else {
@@ -162,6 +165,7 @@ public class PasswordFragment extends Fragment {
                 if (isAdded()) {
                     requireActivity().runOnUiThread(() -> {
                         binding.eTPassword.clearFocus();
+                        // EN: Feed data to ViewModel / RU: Передаем данные в ViewModel
                         passwordViewModel.setPassword(password);
                         passwordViewModel.setDirHash(finalDirHash);
                         
@@ -169,14 +173,13 @@ public class PasswordFragment extends Fragment {
                         MainActivity.GLIDE_KEY = System.currentTimeMillis();
                         savedStateHandle.set(LOGIN_SUCCESSFUL, true);
                         
-                        // EN: Delay navigation slightly for UI smoothness / RU: Небольшая задержка перехода для плавности
                         binding.getRoot().postDelayed(() -> {
                             if (isAdded()) {
                                 if (isCreateMode) {
-                                    // EN: Navigate forward if creating new vault / RU: Переходим вперед, если создаем новое
-                                    Navigation.findNavController(requireView()).navigate(R.id.action_password_to_main);
+                                    // EN: Navigate forward to the gallery / RU: Переходим вперед в галерею
+                                    Navigation.findNavController(requireView()).navigate(R.id.action_password_to_directory);
                                 } else {
-                                    // EN: Go back if unlocking existing / RU: Возвращаемся назад, если открываем старое
+                                    // EN: Regular unlock returns back / RU: Обычный вход возвращает назад
                                     NavHostFragment.findNavController(this).popBackStack();
                                 }
                             }
@@ -184,7 +187,7 @@ public class PasswordFragment extends Fragment {
                     });
                 }
             } catch (Exception e) {
-                showError("Error: " + e.getMessage());
+                showError("Build error: " + e.getMessage());
             }
         }).start();
     }
@@ -282,4 +285,4 @@ public class PasswordFragment extends Fragment {
         super.onDestroyView();
         binding = null;
     }
-            }
+                                            }
