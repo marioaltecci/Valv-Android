@@ -22,6 +22,7 @@ import androidx.lifecycle.SavedStateHandle;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.Navigation;
 import androidx.navigation.fragment.NavHostFragment;
+import androidx.swiperefreshlayout.widget.CircularProgressDrawable;
 
 import java.util.concurrent.Executor;
 
@@ -103,10 +104,8 @@ public class PasswordFragment extends Fragment {
             int length = binding.eTPassword.length();
             if (length == 0 || length > 60) return;
 
-            binding.btnUnlock.setEnabled(false);
-            binding.eTPassword.setEnabled(false);
-            binding.biometrics.setEnabled(false);
-            binding.loading.setVisibility(View.VISIBLE);
+            // Включаем загрузку на кнопке
+            toggleLoading(true, false);
 
             char[] temp = new char[length];
             binding.eTPassword.getText().getChars(0, length, temp, 0);
@@ -128,18 +127,12 @@ public class PasswordFragment extends Fragment {
                     DirHash finalDirHash = dirHash;
                     if (isAdded()) {
                         requireActivity().runOnUiThread(() -> {
-                            // --- PRE-EXIT STABILIZATION ---
-                            // 1. Clear focus to hide keyboard and stabilize layout
-                            // 1. Убираем фокус, чтобы спрятать клаву и стабилизировать лайаут
                             binding.eTPassword.clearFocus();
-                            
                             passwordViewModel.setDirHash(finalDirHash);
                             binding.eTPassword.setText(null);
                             MainActivity.GLIDE_KEY = System.currentTimeMillis();
                             savedStateHandle.set(LOGIN_SUCCESSFUL, true);
                             
-                            // 2. THE FIX: Tiny delay (50ms) to ensure background fragment is ready
-                            // 2. ФИКС: Крошечная задержка (50мс), чтобы нижний фрагмент успел подготовиться
                             binding.getRoot().postDelayed(() -> {
                                 if (isAdded()) {
                                     NavHostFragment.findNavController(this).popBackStack();
@@ -151,10 +144,7 @@ public class PasswordFragment extends Fragment {
                     Log.e(TAG, "Login failed", e);
                     if (isAdded()) {
                         requireActivity().runOnUiThread(() -> {
-                            binding.btnUnlock.setEnabled(true);
-                            binding.eTPassword.setEnabled(true);
-                            binding.biometrics.setEnabled(true);
-                            binding.loading.setVisibility(View.GONE);
+                            toggleLoading(false, false);
                             Toaster.getInstance(requireActivity()).showShort("Authentication error");
                         });
                     }
@@ -172,6 +162,9 @@ public class PasswordFragment extends Fragment {
                 @Override
                 public void onAuthenticationSucceeded(@NonNull BiometricPrompt.AuthenticationResult result) {
                     super.onAuthenticationSucceeded(result);
+                    // Включаем загрузку на иконке отпечатка
+                    requireActivity().runOnUiThread(() -> toggleLoading(true, true));
+                    
                     BiometricPrompt.CryptoObject cryptoObject = result.getCryptoObject();
                     if (cryptoObject != null) {
                         try {
@@ -180,9 +173,16 @@ public class PasswordFragment extends Fragment {
                             binding.eTPassword.setText(chars, 0, chars.length);
                             binding.btnUnlock.performClick();
                         } catch (Exception e) {
+                            requireActivity().runOnUiThread(() -> toggleLoading(false, true));
                             Toaster.getInstance(requireActivity()).showShort("Biometric decryption error");
                         }
                     }
+                }
+                
+                @Override
+                public void onAuthenticationError(int errorCode, @NonNull CharSequence errString) {
+                    super.onAuthenticationError(errorCode, errString);
+                    requireActivity().runOnUiThread(() -> toggleLoading(false, true));
                 }
             });
 
@@ -200,6 +200,7 @@ public class PasswordFragment extends Fragment {
                     cipher.init(Cipher.DECRYPT_MODE, secretKey, new IvParameterSpec(iv));
                     biometricPrompt.authenticate(promptInfo, new BiometricPrompt.CryptoObject(cipher));
                 } catch (Exception e) {
+                    toggleLoading(false, true);
                     Toaster.getInstance(requireContext()).showShort("Biometrics unavailable");
                 }
             });
@@ -210,9 +211,39 @@ public class PasswordFragment extends Fragment {
         }
     }
 
+    /**
+     * Переключает визуальное состояние загрузки для кнопок.
+     */
+    private void toggleLoading(boolean isLoading, boolean isBiometric) {
+        if (isLoading) {
+            CircularProgressDrawable progress = new CircularProgressDrawable(requireContext());
+            progress.setStyle(CircularProgressDrawable.DEFAULT);
+            progress.setColorSchemeColors(ContextCompat.getColor(requireContext(), R.color.primary_color));
+            progress.setStrokeWidth(5f);
+            progress.setCenterRadius(20f);
+            progress.start();
+
+            if (isBiometric) {
+                binding.biometrics.setIcon(progress);
+                binding.btnUnlock.setEnabled(false);
+            } else {
+                binding.btnUnlock.setIcon(progress);
+                binding.biometrics.setEnabled(false);
+            }
+            binding.eTPassword.setEnabled(false);
+        } else {
+            // Возвращаем иконки и состояние
+            binding.biometrics.setIconResource(R.drawable.rounded_fingerprint_24);
+            binding.btnUnlock.setIcon(null);
+            binding.btnUnlock.setEnabled(binding.eTPassword.length() > 0);
+            binding.biometrics.setEnabled(true);
+            binding.eTPassword.setEnabled(true);
+        }
+    }
+
     @Override
     public void onDestroyView() {
         super.onDestroyView();
         binding = null;
     }
-                }
+            }
