@@ -1,6 +1,6 @@
 /*
  * Valv-Android
- * Copyright (C) 2024 Arctosoft AB
+ * Copyright (c) 2024 Arctosoft AB
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -148,15 +148,29 @@ public abstract class DirectoryBaseFragment extends Fragment implements MenuProv
         copyViewModel = new ViewModelProvider(this).get(CopyViewModel.class);
         moveViewModel = new ViewModelProvider(this).get(MoveViewModel.class);
         navController = NavHostFragment.findNavController(this);
+        settings = Settings.getInstance(requireContext());
+
         Log.e(TAG, "onViewCreated: locked? " + passwordViewModel.isLocked());
         if (passwordViewModel.isLocked()) {
             Password.lock(requireActivity(), false);
             navController.navigate(R.id.password);
         } else {
             init();
+            // EN: Initialize recent folders section under title / RU: Инициализация секции недавних папок под заголовком
+            initRecentFolders();
         }
 
         setPadding();
+    }
+
+    // EN: Setup visibility for recent folders layout / RU: Настройка видимости контейнера недавних папок
+    private void initRecentFolders() {
+        if (galleryViewModel.isRootDir() && binding.layoutRecentFolders != null) {
+            // EN: Visible only in root directory / RU: Видимо только в корневой директории
+            binding.layoutRecentFolders.setVisibility(View.VISIBLE);
+        } else if (binding.layoutRecentFolders != null) {
+            binding.layoutRecentFolders.setVisibility(View.GONE);
+        }
     }
 
     private void setPadding() {
@@ -177,9 +191,7 @@ public abstract class DirectoryBaseFragment extends Fragment implements MenuProv
             }
 
             @Override
-            public void onViewDetachedFromWindow(@NonNull View view) {
-
-            }
+            public void onViewDetachedFromWindow(@NonNull View view) {}
         };
         binding.layoutFabsAdd.addOnAttachStateChangeListener(onAttachStateChangeListener);
         binding.layoutFabsRemoveFolders.addOnAttachStateChangeListener(onAttachStateChangeListener);
@@ -187,7 +199,6 @@ public abstract class DirectoryBaseFragment extends Fragment implements MenuProv
 
     public abstract void init();
 
-    // EN: Updated for One UI style / RU: Обновлено для стиля One UI
     boolean initActionBar(boolean isAllFolder) {
         ActionBar ab = ((AppCompatActivity) requireActivity()).getSupportActionBar();
 
@@ -195,7 +206,6 @@ public abstract class DirectoryBaseFragment extends Fragment implements MenuProv
             ab.setDisplayHomeAsUpEnabled(true);
             String title = isAllFolder ? getString(R.string.gallery_all) : FileStuff.getFilenameFromUri(galleryViewModel.getCurrentDirectoryUri(), false);
             
-            // EN: Remove internal primary: prefix for One UI look / RU: Удаляем внутренний префикс primary: для стиля One UI
             if (title != null && title.startsWith("primary:")) {
                 title = title.replace("primary:", "");
             }
@@ -220,7 +230,7 @@ public abstract class DirectoryBaseFragment extends Fragment implements MenuProv
                 if (galleryViewModel.isRootDir() && galleryViewModel.getGalleryFiles().isEmpty()) {
                     settings.addGalleryDirectory(destinationUri, true, null);
                     addRootFolders();
-                } else if (sameDirectory || (destinationUri != null && galleryViewModel.getCurrentDirectoryUri() != null && destinationUri.toString().equals(galleryViewModel.getCurrentDirectoryUri().toString()))) { // files added to current directory
+                } else if (sameDirectory || (destinationUri != null && galleryViewModel.getCurrentDirectoryUri() != null && destinationUri.toString().equals(galleryViewModel.getCurrentDirectoryUri().toString()))) {
                     synchronized (LOCK) {
                         int size = galleryViewModel.getGalleryFiles().size();
                         galleryViewModel.getGalleryFiles().clear();
@@ -352,7 +362,6 @@ public abstract class DirectoryBaseFragment extends Fragment implements MenuProv
         }).start();
     }
 
-    // EN: Logic for folder click in One UI style / RU: Логика клика по папке в стиле One UI
     void setupGrid() {
         initFastScroll();
         int spanCount = getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE ? 6 : 3;
@@ -363,13 +372,11 @@ public abstract class DirectoryBaseFragment extends Fragment implements MenuProv
         galleryGridAdapter.setOnFileDeleted(pos -> galleryPagerAdapter.notifyItemRemoved(pos));
         binding.recyclerView.setAdapter(galleryGridAdapter);
         
-        // EN: Clicking on a folder at root level opens the password dialog / RU: Клик по папке в корне открывает диалог пароля
         galleryGridAdapter.setOnFileCLicked(pos -> {
             GalleryFile file = galleryViewModel.getGalleryFiles().get(pos);
             if (file.isDirectory() && galleryViewModel.isRootDir()) {
-                // EN: Show popup dialog from Dialogs class / RU: Показываем диалог из класса Dialogs
+                // EN: One UI: Show password dialog before entering folder / RU: One UI: Показ диалога пароля перед входом в папку
                 Dialogs.showPasswordDialog(requireContext(), file, (pass) -> {
-                     // EN: Proceed if password was entered / RU: Продолжаем после ввода пароля
                      galleryViewModel.setClickedDirectoryUri(file.getUri());
                      showViewpager(true, pos, true);
                 });
@@ -424,16 +431,18 @@ public abstract class DirectoryBaseFragment extends Fragment implements MenuProv
         ActionBar ab = ((AppCompatActivity) activity).getSupportActionBar();
 
         if (show) {
-            if (ab != null) {
-                ab.hide();
-            }
+            if (ab != null) ab.hide();
             binding.viewPager.setVisibility(View.VISIBLE);
             binding.viewPager.setCurrentItem(pos, false);
+            // EN: Hide recent folders in pager mode / RU: Скрываем недавние папки в режиме просмотра
+            if (binding.layoutRecentFolders != null) binding.layoutRecentFolders.setVisibility(View.GONE);
         } else {
-            if (ab != null) {
-                ab.show();
-            }
+            if (ab != null) ab.show();
             binding.viewPager.setVisibility(View.GONE);
+            // EN: Restore recent folders visibility / RU: Восстанавливаем видимость недавних папок
+            if (galleryViewModel.isRootDir() && binding.layoutRecentFolders != null) {
+                binding.layoutRecentFolders.setVisibility(View.VISIBLE);
+            }
             if (pos >= 0) {
                 RecyclerView.ViewHolder viewHolder = binding.recyclerView.findViewHolderForAdapterPosition(pos);
                 if (viewHolder != null && animate) {
@@ -458,41 +467,13 @@ public abstract class DirectoryBaseFragment extends Fragment implements MenuProv
             synchronized (LOCK) {
                 List<GalleryFile> galleryFiles = galleryViewModel.getGalleryFiles();
                 if (order == ORDER_BY_NEWEST) {
-                    galleryFiles.sort((o1, o2) -> {
-                        if (o1.getLastModified() > o2.getLastModified()) {
-                            return -1;
-                        } else if (o1.getLastModified() < o2.getLastModified()) {
-                            return 1;
-                        }
-                        return 0;
-                    });
+                    galleryFiles.sort((o1, o2) -> Long.compare(o2.getLastModified(), o1.getLastModified()));
                 } else if (order == ORDER_BY_OLDEST) {
-                    galleryFiles.sort((o1, o2) -> {
-                        if (o1.getLastModified() > o2.getLastModified()) {
-                            return 1;
-                        } else if (o1.getLastModified() < o2.getLastModified()) {
-                            return -1;
-                        }
-                        return 0;
-                    });
+                    galleryFiles.sort((o1, o2) -> Long.compare(o1.getLastModified(), o2.getLastModified()));
                 } else if (order == ORDER_BY_LARGEST) {
-                    galleryFiles.sort((o1, o2) -> {
-                        if (o1.getSize() > o2.getSize()) {
-                            return -1;
-                        } else if (o1.getSize() < o2.getSize()) {
-                            return 1;
-                        }
-                        return 0;
-                    });
+                    galleryFiles.sort((o1, o2) -> Long.compare(o2.getSize(), o1.getSize()));
                 } else if (order == ORDER_BY_SMALLEST) {
-                    galleryFiles.sort((o1, o2) -> {
-                        if (o1.getSize() > o2.getSize()) {
-                            return 1;
-                        } else if (o1.getSize() < o2.getSize()) {
-                            return -1;
-                        }
-                        return 0;
-                    });
+                    galleryFiles.sort((o1, o2) -> Long.compare(o1.getSize(), o2.getSize()));
                 } else {
                     Collections.shuffle(galleryFiles);
                 }
@@ -694,4 +675,4 @@ public abstract class DirectoryBaseFragment extends Fragment implements MenuProv
         }
         super.onDestroy();
     }
-                            }
+                    }
