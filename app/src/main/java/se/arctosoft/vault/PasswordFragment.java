@@ -100,14 +100,10 @@ public class PasswordFragment extends Fragment {
             return false;
         });
 
-        // --- UNLOCK BUTTON ACTION ---
-        // --- ДЕЙСТВИЕ КНОПКИ РАЗБЛОКИРОВКИ ---
         binding.btnUnlock.setOnClickListener(v -> {
             int length = binding.eTPassword.length();
             if (length == 0 || length > 60) return;
-
             toggleLoading(true, false);
-
             char[] temp = new char[length];
             binding.eTPassword.getText().getChars(0, length, temp, 0);
             performUnlock(temp, false);
@@ -188,7 +184,6 @@ public class PasswordFragment extends Fragment {
                         throw new Exception("Hash error");
                     }
                 }
-
                 DirHash finalDirHash = dirHash;
                 if (isAdded()) {
                     requireActivity().runOnUiThread(() -> {
@@ -217,8 +212,15 @@ public class PasswordFragment extends Fragment {
         if (isLoading) {
             CircularProgressDrawable progress = new CircularProgressDrawable(requireContext());
             progress.setStyle(CircularProgressDrawable.DEFAULT);
-            progress.setColorSchemeColors(0xFFFFFFFF); // EN: White for contrast / RU: Белый для контраста
-            progress.setStrokeWidth(8f); // EN: Thicker line / RU: Линия толще
+            
+            // EN: Blue for biometric (light bg), White for button (blue bg)
+            // RU: Синий для биометрии (светлый фон), Белый для кнопки (синий фон)
+            int color = isBiometric 
+                ? ContextCompat.getColor(requireContext(), R.color.primary_color) 
+                : 0xFFFFFFFF;
+                
+            progress.setColorSchemeColors(color);
+            progress.setStrokeWidth(8f);
             progress.setCenterRadius(20f);
             progress.start();
 
@@ -244,4 +246,4 @@ public class PasswordFragment extends Fragment {
         super.onDestroyView();
         binding = null;
     }
-}
+                                              }
