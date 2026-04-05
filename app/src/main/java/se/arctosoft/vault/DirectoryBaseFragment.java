@@ -97,20 +97,28 @@ public abstract class DirectoryBaseFragment extends Fragment implements MenuProv
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
+        Log.e(TAG, "onCreate: ");
         super.onCreate(savedInstanceState);
+
         navController = NavHostFragment.findNavController(this);
+
         NavBackStackEntry navBackStackEntry = navController.getCurrentBackStackEntry();
         SavedStateHandle savedStateHandle = navBackStackEntry.getSavedStateHandle();
         savedStateHandle.getLiveData(PasswordFragment.LOGIN_SUCCESSFUL).observe(navBackStackEntry, o -> {
-            if (!(Boolean) o) {
+            Boolean success = (Boolean) o;
+            if (!success) {
                 Password.lock(getContext(), false);
-                if (getActivity() != null) getActivity().finish();
+                FragmentActivity activity = getActivity();
+                if (activity != null) {
+                    activity.finish();
+                }
             }
         });
     }
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+        Log.e(TAG, "onCreateView: ");
         binding = FragmentDirectoryBinding.inflate(inflater, container, false);
         return binding.getRoot();
     }
@@ -118,6 +126,7 @@ public abstract class DirectoryBaseFragment extends Fragment implements MenuProv
     @Override
     public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+
         passwordViewModel = new ViewModelProvider(requireActivity()).get(PasswordViewModel.class);
         galleryViewModel = new ViewModelProvider(this).get(GalleryViewModel.class);
         importViewModel = new ViewModelProvider(this).get(ImportViewModel.class);
@@ -125,9 +134,15 @@ public abstract class DirectoryBaseFragment extends Fragment implements MenuProv
         exportViewModel = new ViewModelProvider(this).get(ExportViewModel.class);
         copyViewModel = new ViewModelProvider(this).get(CopyViewModel.class);
         moveViewModel = new ViewModelProvider(this).get(MoveViewModel.class);
-        
-        // EN: UI initialization / RU: Инициализация интерфейса
-        init();
+        navController = NavHostFragment.findNavController(this);
+        Log.e(TAG, "onViewCreated: locked? " + passwordViewModel.isLocked());
+        if (passwordViewModel.isLocked()) {
+            Password.lock(requireActivity(), false);
+            navController.navigate(R.id.password);
+        } else {
+            init();
+        }
+
         setPadding();
     }
 
@@ -137,89 +152,533 @@ public abstract class DirectoryBaseFragment extends Fragment implements MenuProv
             v.setPadding(bars.left, 0, bars.right, bars.bottom);
             return WindowInsetsCompat.CONSUMED;
         });
+        ViewCompat.setOnApplyWindowInsetsListener(binding.layoutFabsRemoveFolders, (v, insets) -> {
+            Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+            v.setPadding(bars.left, 0, bars.right, bars.bottom);
+            return WindowInsetsCompat.CONSUMED;
+        });
+        View.OnAttachStateChangeListener onAttachStateChangeListener = new View.OnAttachStateChangeListener() {
+            @Override
+            public void onViewAttachedToWindow(@NonNull View view) {
+                view.requestApplyInsets();
+            }
+
+            @Override
+            public void onViewDetachedFromWindow(@NonNull View view) {
+
+            }
+        };
+        binding.layoutFabsAdd.addOnAttachStateChangeListener(onAttachStateChangeListener);
+        binding.layoutFabsRemoveFolders.addOnAttachStateChangeListener(onAttachStateChangeListener);
     }
 
     public abstract void init();
 
+    // EN: Updated for One UI style / RU: Обновлено для стиля One UI
     boolean initActionBar(boolean isAllFolder) {
         ActionBar ab = ((AppCompatActivity) requireActivity()).getSupportActionBar();
+
         if (ab != null) {
             ab.setDisplayHomeAsUpEnabled(true);
             String title = isAllFolder ? getString(R.string.gallery_all) : FileStuff.getFilenameFromUri(galleryViewModel.getCurrentDirectoryUri(), false);
             
-            // EN: Clean primary: prefix / RU: Убираем primary:
-            if (title != null && title.contains("primary:")) {
+            // EN: Remove internal primary: prefix for One UI look / RU: Удаляем внутренний префикс primary: для стиля One UI
+            if (title != null && title.startsWith("primary:")) {
                 title = title.replace("primary:", "");
             }
+            
             ab.setTitle(title);
             return true;
         }
         return false;
     }
 
+    void initViewModels() {
+        importViewModel.setOnImportDoneFragment((destinationUri, sameDirectory, importedCount, failedCount, thumbErrorCount) -> {
+            Log.e(TAG, "setOnImportDoneFragment: " + destinationUri + ", " + sameDirectory + ", " + importedCount + ", " + failedCount + ", " + thumbErrorCount);
+
+            FragmentActivity activity = getActivity();
+            if (activity == null || activity.isDestroyed()) {
+                return;
+            }
+            activity.runOnUiThread(() -> {
+                Toaster.getInstance(activity).showLong(getString(R.string.gallery_selected_files_imported, importedCount));
+
+                if (galleryViewModel.isRootDir() && galleryViewModel.getGalleryFiles().isEmpty()) {
+                    settings.addGalleryDirectory(destinationUri, true, null);
+                    addRootFolders();
+                } else if (sameDirectory || (destinationUri != null && galleryViewModel.getCurrentDirectoryUri() != null && destinationUri.toString().equals(galleryViewModel.getCurrentDirectoryUri().toString()))) { // files added to current directory
+                    synchronized (LOCK) {
+                        int size = galleryViewModel.getGalleryFiles().size();
+                        galleryViewModel.getGalleryFiles().clear();
+                        galleryViewModel.getHiddenFiles().clear();
+                        galleryGridAdapter.notifyItemRangeRemoved(0, size);
+                        galleryPagerAdapter.notifyItemRangeRemoved(0, size);
+                        galleryViewModel.setInitialised(false);
+                        findFilesIn(galleryViewModel.getCurrentDirectoryUri());
+                    }
+                } else {
+                    synchronized (LOCK) {
+                        for (int i = 0; i < galleryViewModel.getGalleryFiles().size(); i++) {
+                            GalleryFile g = galleryViewModel.getGalleryFiles().get(i);
+                            if (g.isDirectory() && g.getUri() != null && g.getUri().equals(destinationUri)) {
+                                g.resetFilesInDirectory();
+                                galleryGridAdapter.notifyItemChanged(i);
+                                break;
+                            }
+                        }
+                    }
+                }
+            });
+        });
+
+        deleteViewModel.setOnDeleteDoneFragment(deletedFiles -> {
+            Log.e(TAG, "setOnDeleteDoneFragment:  deleted " + deletedFiles.size());
+            FragmentActivity activity = getActivity();
+            if (activity == null || activity.isDestroyed()) {
+                return;
+            }
+            activity.runOnUiThread(() -> {
+                Toaster.getInstance(activity).showLong(getString(R.string.gallery_selected_files_deleted, deletedFiles.size()));
+                synchronized (LOCK) {
+                    List<GalleryFile> galleryFiles = galleryViewModel.getGalleryFiles();
+                    for (int i = galleryFiles.size() - 1; i >= 0; i--) {
+                        GalleryFile f = galleryFiles.get(i);
+                        for (GalleryFile deleted : deletedFiles) {
+                            if (f.equals(deleted)) {
+                                galleryFiles.remove(i);
+                                galleryGridAdapter.notifyItemRemoved(i);
+                                galleryPagerAdapter.notifyItemRemoved(i);
+                            }
+                        }
+                    }
+                    galleryGridAdapter.onSelectionModeChanged(false);
+                }
+            });
+        });
+
+        exportViewModel.setOnDoneFragment(processedFiles -> {
+            Log.e(TAG, "setOnExportDoneFragment: exported " + processedFiles.size());
+            FragmentActivity activity = getActivity();
+            if (activity == null || activity.isDestroyed()) {
+                return;
+            }
+            activity.runOnUiThread(() -> {
+                galleryGridAdapter.onSelectionModeChanged(false);
+                Toaster.getInstance(activity).showLong(getString(R.string.gallery_selected_files_exported, processedFiles.size()));
+            });
+        });
+
+        copyViewModel.setOnDoneFragment(processedFiles -> {
+            Log.e(TAG, "setOnDoneFragment: copied " + processedFiles.size());
+            FragmentActivity activity = getActivity();
+            if (activity == null || activity.isDestroyed()) {
+                return;
+            }
+            activity.runOnUiThread(() -> {
+                galleryGridAdapter.onSelectionModeChanged(false);
+                Toaster.getInstance(activity).showLong(getString(R.string.gallery_selected_files_copied, processedFiles.size()));
+            });
+        });
+
+        moveViewModel.setOnDoneFragment(processedFiles -> {
+            Log.e(TAG, "setOnDoneFragment: moved " + processedFiles.size());
+            FragmentActivity activity = getActivity();
+            if (activity == null || activity.isDestroyed()) {
+                return;
+            }
+            activity.runOnUiThread(() -> {
+                Toaster.getInstance(activity).showLong(getString(R.string.gallery_selected_files_moved, processedFiles.size()));
+                if (galleryViewModel.isAllFolder()) {
+                    return;
+                }
+                synchronized (LOCK) {
+                    List<GalleryFile> galleryFiles = galleryViewModel.getGalleryFiles();
+                    for (int i = galleryFiles.size() - 1; i >= 0; i--) {
+                        GalleryFile f = galleryFiles.get(i);
+                        for (GalleryFile moved : processedFiles) {
+                            if (f.equals(moved)) {
+                                galleryFiles.remove(i);
+                                galleryGridAdapter.notifyItemRemoved(i);
+                                galleryPagerAdapter.notifyItemRemoved(i);
+                            }
+                        }
+                    }
+                    galleryGridAdapter.onSelectionModeChanged(false);
+                }
+            });
+        });
+    }
+
+    abstract void addRootFolders();
+
+    void findFilesIn(Uri directoryUri) {
+        Log.e(TAG, "findFilesIn: " + directoryUri);
+        setLoading(true);
+        new Thread(() -> {
+            FragmentActivity activity = getActivity();
+            if (activity == null || !isSafe()) {
+                Log.e(TAG, "findFilesIn: not safe, return");
+                return;
+            }
+            List<GalleryFile> galleryFiles = FileStuff.getFilesInFolder(activity, directoryUri, true);
+
+            activity.runOnUiThread(() -> {
+                setLoading(false);
+                synchronized (LOCK) {
+                    if (galleryViewModel.isInitialised()) {
+                        return;
+                    }
+                    galleryViewModel.addGalleryFiles(galleryFiles);
+                    galleryViewModel.setInitialised(true);
+                    galleryGridAdapter.notifyItemRangeInserted(0, galleryFiles.size());
+                    galleryPagerAdapter.notifyItemRangeInserted(0, galleryFiles.size());
+                    initFastScroll();
+                }
+            });
+        }).start();
+    }
+
+    // EN: Logic for folder click in One UI style / RU: Логика клика по папке в стиле One UI
     void setupGrid() {
         initFastScroll();
-        // EN: One UI style grid (2 columns for folders usually looks better)
-        // RU: Сетка в стиле One UI (2 колонки для папок обычно выглядят лучше)
-        int spanCount = getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE ? 4 : 2;
+        int spanCount = getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE ? 6 : 3;
         RecyclerView.LayoutManager layoutManager = new StaggeredGridLayoutManager(spanCount, RecyclerView.VERTICAL);
         binding.recyclerView.setLayoutManager(layoutManager);
-        
         galleryGridAdapter = new GalleryGridAdapter(requireActivity(), galleryViewModel.getGalleryFiles(), settings.showFilenames(), galleryViewModel.isRootDir(), galleryViewModel);
+        galleryGridAdapter.setNestedPath(galleryViewModel.getNestedPath());
+        galleryGridAdapter.setOnFileDeleted(pos -> galleryPagerAdapter.notifyItemRemoved(pos));
         binding.recyclerView.setAdapter(galleryGridAdapter);
-
-        // EN: Handle click to show One UI style password popup
-        // RU: Обработка клика для показа всплывающего окна пароля в стиле One UI
+        
+        // EN: Clicking on a folder at root level now opens the password dialog / RU: Клик по папке в корне теперь открывает диалог пароля
         galleryGridAdapter.setOnFileCLicked(pos -> {
             GalleryFile file = galleryViewModel.getGalleryFiles().get(pos);
             if (file.isDirectory() && galleryViewModel.isRootDir()) {
-                // EN: Show popup dialog for password / RU: Показываем диалог ввода пароля
+                // EN: Show popup dialog here / RU: Показываем всплывающее окно здесь
                 Dialogs.showPasswordDialog(requireContext(), file, (pass) -> {
-                    galleryViewModel.setClickedDirectoryUri(file.getUri());
-                    showViewpager(true, pos, true);
+                     // EN: Proceed if password is correct / RU: Продолжаем, если пароль верный
+                     galleryViewModel.setClickedDirectoryUri(file.getUri());
+                     showViewpager(true, pos, true);
                 });
             } else {
                 showViewpager(true, pos, true);
             }
         });
+        
+        galleryGridAdapter.setOnSelectionModeChanged(this::onSelectionModeChanged);
     }
 
-    // ... (остальные методы findFilesIn, orderBy, filterBy остаются без изменений)
+    private void initFastScroll() {
+        if (galleryViewModel.isInitialised()) {
+            binding.recyclerView.setFastScrollEnabled(galleryViewModel.getGalleryFiles().size() > MIN_FILES_FOR_FAST_SCROLL);
+        } else {
+            binding.recyclerView.setFastScrollEnabled(false);
+        }
+    }
+
+    abstract void onSelectionModeChanged(boolean inSelectionMode);
+
+    void setupViewpager() {
+        galleryPagerAdapter = new GalleryPagerAdapter(requireActivity(), galleryViewModel.getGalleryFiles(), pos -> galleryGridAdapter.notifyItemRemoved(pos), galleryViewModel.getCurrentDocumentDirectory(),
+                galleryViewModel.isAllFolder(), galleryViewModel.getNestedPath(), galleryViewModel);
+        binding.viewPager.setAdapter(galleryPagerAdapter);
+        binding.viewPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
+            @Override
+            public void onPageSelected(int position) {
+                super.onPageSelected(position);
+                binding.recyclerView.scrollToPosition(position);
+                galleryViewModel.setCurrentPosition(position);
+            }
+        });
+        binding.viewPager.postDelayed(() -> {
+            binding.viewPager.setCurrentItem(galleryViewModel.getCurrentPosition(), false);
+            showViewpager(galleryViewModel.isViewpagerVisible(), galleryViewModel.getCurrentPosition(), false);
+        }, 200);
+    }
+
+    void setLoading(boolean loading) {
+        binding.cLLoading.cLLoading.setVisibility(loading ? View.VISIBLE : View.GONE);
+        binding.cLLoading.txtProgress.setVisibility(View.GONE);
+    }
 
     void showViewpager(boolean show, int pos, boolean animate) {
         galleryViewModel.setViewpagerVisible(show);
+        galleryPagerAdapter.showPager(show);
+        FragmentActivity activity = getActivity();
+        if (activity == null || activity.isDestroyed()) {
+            return;
+        }
+        ActionBar ab = ((AppCompatActivity) activity).getSupportActionBar();
+
         if (show) {
+            if (ab != null) {
+                ab.hide();
+            }
             binding.viewPager.setVisibility(View.VISIBLE);
             binding.viewPager.setCurrentItem(pos, false);
-            if (((AppCompatActivity) requireActivity()).getSupportActionBar() != null) 
-                ((AppCompatActivity) requireActivity()).getSupportActionBar().hide();
         } else {
+            if (ab != null) {
+                ab.show();
+            }
             binding.viewPager.setVisibility(View.GONE);
-            if (((AppCompatActivity) requireActivity()).getSupportActionBar() != null) 
-                ((AppCompatActivity) requireActivity()).getSupportActionBar().show();
+            if (pos >= 0) {
+                RecyclerView.ViewHolder viewHolder = binding.recyclerView.findViewHolderForAdapterPosition(pos);
+                if (viewHolder != null && animate) {
+                    Animation animation = new AlphaAnimation(0, 1);
+                    animation.setDuration(500);
+                    animation.setInterpolator(new LinearInterpolator());
+                    viewHolder.itemView.startAnimation(animation);
+                }
+                binding.recyclerView.scrollToPosition(pos);
+            }
         }
+    }
+
+    boolean isSafe() {
+        return !(isRemoving() || getActivity() == null || isDetached() || !isAdded() || getView() == null);
+    }
+
+    @SuppressLint("NotifyDataSetChanged")
+    void orderBy(int order) {
+        this.orderBy = order;
+        new Thread(() -> {
+            synchronized (LOCK) {
+                List<GalleryFile> galleryFiles = galleryViewModel.getGalleryFiles();
+                if (order == ORDER_BY_NEWEST) {
+                    galleryFiles.sort((o1, o2) -> {
+                        if (o1.getLastModified() > o2.getLastModified()) {
+                            return -1;
+                        } else if (o1.getLastModified() < o2.getLastModified()) {
+                            return 1;
+                        }
+                        return 0;
+                    });
+                } else if (order == ORDER_BY_OLDEST) {
+                    galleryFiles.sort((o1, o2) -> {
+                        if (o1.getLastModified() > o2.getLastModified()) {
+                            return 1;
+                        } else if (o1.getLastModified() < o2.getLastModified()) {
+                            return -1;
+                        }
+                        return 0;
+                    });
+                } else if (order == ORDER_BY_LARGEST) {
+                    galleryFiles.sort((o1, o2) -> {
+                        if (o1.getSize() > o2.getSize()) {
+                            return -1;
+                        } else if (o1.getSize() < o2.getSize()) {
+                            return 1;
+                        }
+                        return 0;
+                    });
+                } else if (order == ORDER_BY_SMALLEST) {
+                    galleryFiles.sort((o1, o2) -> {
+                        if (o1.getSize() > o2.getSize()) {
+                            return 1;
+                        } else if (o1.getSize() < o2.getSize()) {
+                            return -1;
+                        }
+                        return 0;
+                    });
+                } else {
+                    Collections.shuffle(galleryFiles);
+                }
+                requireActivity().runOnUiThread(() -> {
+                    synchronized (LOCK) {
+                        galleryGridAdapter.notifyDataSetChanged();
+                        galleryPagerAdapter.notifyDataSetChanged();
+                    }
+                });
+            }
+        }).start();
+    }
+
+    @SuppressLint("NotifyDataSetChanged")
+    void filterBy(int filter) {
+        new Thread(() -> {
+            synchronized (LOCK) {
+                List<GalleryFile> hiddenFiles = galleryViewModel.getHiddenFiles();
+                List<GalleryFile> galleryFiles = galleryViewModel.getGalleryFiles();
+                if (!hiddenFiles.isEmpty()) {
+                    galleryViewModel.getGalleryFiles().addAll(hiddenFiles);
+                    hiddenFiles.clear();
+                }
+                if (filter != FILTER_ALL) {
+                    Iterator<GalleryFile> it = galleryFiles.iterator();
+                    while (it.hasNext()) {
+                        GalleryFile f = it.next();
+                        if (!f.isDirectory() && f.getFileType().type != filter) {
+                            it.remove();
+                            hiddenFiles.add(f);
+                        }
+                    }
+                    requireActivity().runOnUiThread(() -> {
+                        galleryGridAdapter.notifyDataSetChanged();
+                        galleryPagerAdapter.notifyDataSetChanged();
+                    });
+                }
+                orderBy(this.orderBy);
+            }
+        }).start();
     }
 
     @Override
     public void onCreateMenu(@NonNull Menu menu, @NonNull MenuInflater menuInflater) {
         menu.clear();
-        menuInflater.inflate(galleryViewModel.isRootDir() ? R.menu.menu_root : R.menu.menu_dir, menu);
+        if (galleryViewModel.isInSelectionMode()) {
+            if (galleryViewModel.isRootDir()) {
+                menuInflater.inflate(R.menu.menu_main_selection_root, menu);
+            } else {
+                menuInflater.inflate(R.menu.menu_main_selection_dir, menu);
+            }
+        } else {
+            if (galleryViewModel.isRootDir()) {
+                menuInflater.inflate(R.menu.menu_root, menu);
+            } else {
+                menuInflater.inflate(R.menu.menu_dir, menu);
+            }
+        }
     }
 
     @Override
     public boolean onMenuItemSelected(@NonNull MenuItem menuItem) {
-        if (menuItem.getItemId() == R.id.lock) {
-            Password.lock(getContext(), true);
-            if (getActivity() != null) getActivity().finish();
+        int id = menuItem.getItemId();
+
+        if (id == R.id.action_settings) {
+            navController.navigate(R.id.action_directory_to_settings);
+            return true;
+        } else if (id == R.id.lock) {
+            Password.lock(getContext(), galleryViewModel.isEmptyRootDir());
+            FragmentActivity activity = getActivity();
+            if (activity != null) {
+                activity.finish();
+                if (!settings.exitOnLock()) {
+                    startActivity(new Intent(requireContext(), MainActivity.class));
+                }
+            }
+            return true;
+        } else if (id == R.id.order_by_newest_first) {
+            orderBy(ORDER_BY_NEWEST);
+            return true;
+        } else if (id == R.id.order_by_oldest_first) {
+            orderBy(ORDER_BY_OLDEST);
+            return true;
+        } else if (id == R.id.order_by_largest_first) {
+            orderBy(ORDER_BY_LARGEST);
+            return true;
+        } else if (id == R.id.order_by_smallest_first) {
+            orderBy(ORDER_BY_SMALLEST);
+            return true;
+        } else if (id == R.id.order_by_random) {
+            orderBy(ORDER_BY_RANDOM);
+            return true;
+        } else if (id == R.id.filter_all) {
+            filterBy(FILTER_ALL);
+            return true;
+        } else if (id == R.id.filter_images) {
+            filterBy(FILTER_IMAGES);
+            return true;
+        } else if (id == R.id.filter_gifs) {
+            filterBy(FILTER_GIFS);
+            return true;
+        } else if (id == R.id.filter_videos) {
+            filterBy(FILTER_VIDEOS);
+            return true;
+        } else if (id == R.id.filter_text) {
+            filterBy(FILTER_TEXTS);
+            return true;
+        } else if (id == R.id.toggle_filename) {
+            settings.setShowFilenames(galleryGridAdapter.toggleFilenames());
+            return true;
+        } else if (id == R.id.select_all) {
+            galleryGridAdapter.selectAll();
+            return true;
+        } else if (id == R.id.export_selected) {
+            exportViewModel.getFilesToExport().clear();
+            exportViewModel.getFilesToExport().addAll(galleryGridAdapter.getSelectedFiles());
+            exportViewModel.setCurrentDocumentDirectory(galleryViewModel.getCurrentDocumentDirectory());
+
+            BottomSheetExportFragment bottomSheetDeleteFragment = new BottomSheetExportFragment();
+            FragmentManager childFragmentManager = getChildFragmentManager();
+            bottomSheetDeleteFragment.show(childFragmentManager, null);
+            return true;
+        } else if (id == R.id.copy_selected) {
+            copyViewModel.getFiles().clear();
+            copyViewModel.getFiles().addAll(galleryGridAdapter.getSelectedFiles());
+            copyViewModel.setCurrentDirectoryUri(galleryViewModel.getCurrentDirectoryUri());
+
+            BottomSheetCopyFragment bottomSheetCopyFragment = new BottomSheetCopyFragment();
+            FragmentManager childFragmentManager = getChildFragmentManager();
+            bottomSheetCopyFragment.show(childFragmentManager, null);
+            return true;
+        } else if (id == R.id.move_selected) {
+            moveViewModel.getFiles().clear();
+            moveViewModel.getFiles().addAll(galleryGridAdapter.getSelectedFiles());
+            moveViewModel.setCurrentDirectoryUri(galleryViewModel.getCurrentDirectoryUri());
+
+            BottomSheetMoveFragment bottomSheetMoveFragment = new BottomSheetMoveFragment();
+            FragmentManager childFragmentManager = getChildFragmentManager();
+            bottomSheetMoveFragment.show(childFragmentManager, null);
+            return true;
+        } else if (id == R.id.about) {
+            Dialogs.showAboutDialog(requireContext());
             return true;
         }
+
         return false;
     }
 
-    private void initFastScroll() {
-        binding.recyclerView.setFastScrollEnabled(galleryViewModel.getGalleryFiles().size() > MIN_FILES_FOR_FAST_SCROLL);
+    @Override
+    public void onStart() {
+        super.onStart();
+        requireActivity().addMenuProvider(this, getViewLifecycleOwner());
+        Uri clickedDirectoryUri = galleryViewModel.getClickedDirectoryUri();
+        if (clickedDirectoryUri != null) {
+            galleryViewModel.setClickedDirectoryUri(null);
+            synchronized (LOCK) {
+                List<GalleryFile> galleryFiles = galleryViewModel.getGalleryFiles();
+                for (int i = 0; i < galleryFiles.size(); i++) {
+                    GalleryFile galleryFile = galleryFiles.get(i);
+                    if (galleryFile.isDirectory() && galleryFile.getUri() == clickedDirectoryUri) {
+                        galleryFile.resetFilesInDirectory();
+                        galleryGridAdapter.notifyItemChanged(i);
+                        galleryPagerAdapter.notifyItemChanged(i);
+                        break;
+                    }
+                }
+            }
+        }
     }
 
-    public abstract void addRootFolders();
-    abstract void onSelectionModeChanged(boolean inSelectionMode);
-}
+    @Override
+    public void onStop() {
+        if (galleryPagerAdapter != null) {
+            galleryPagerAdapter.pausePlayers();
+        }
+        requireActivity().removeMenuProvider(this);
+        if (galleryViewModel != null && !galleryViewModel.isViewpagerVisible()) {
+            StaggeredGridLayoutManager layoutManager = (StaggeredGridLayoutManager) binding.recyclerView.getLayoutManager();
+            if (layoutManager != null) {
+                int[] positions = layoutManager.findFirstVisibleItemPositions(null);
+                int min = -1;
+                for (int position : positions) {
+                    if (min == -1 || position < min) {
+                        min = position;
+                    }
+                }
+                if (min >= 0) {
+                    galleryViewModel.setCurrentPosition(min);
+                }
+            }
+        }
+        super.onStop();
+    }
+
+    @Override
+    public void onDestroy() {
+        if (galleryPagerAdapter != null) {
+            galleryPagerAdapter.releasePlayers();
+        }
+        super.onDestroy();
+    }
+                        }
