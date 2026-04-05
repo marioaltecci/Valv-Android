@@ -192,12 +192,13 @@ public abstract class DirectoryBaseFragment extends Fragment implements MenuProv
         if (ab != null) {
             ab.setDisplayHomeAsUpEnabled(true);
             
-            // EN: Get raw title from Uri / RU: Получаем сырой заголовок из Uri
+            // EN: Get title from Uri / RU: Получаем заголовок из Uri
             String title = isAllFolder ? getString(R.string.gallery_all) : FileStuff.getFilenameFromUri(galleryViewModel.getCurrentDirectoryUri(), false);
             
-            // EN: Clean up primary storage prefix / RU: Очищаем префикс основного хранилища
+            // EN: Remove "primary:" prefix completely to show only folder name
+            // RU: Полностью удаляем префикс "primary:", чтобы осталось только название папки
             if (title != null && title.contains("primary:")) {
-                title = title.replace("primary:", "/");
+                title = title.replace("primary:", "");
             }
             
             ab.setTitle(title);
@@ -650,4 +651,4 @@ public abstract class DirectoryBaseFragment extends Fragment implements MenuProv
         }
         super.onDestroy();
     }
-            }
+                }
