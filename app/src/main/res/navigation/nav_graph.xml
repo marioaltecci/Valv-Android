@@ -16,7 +16,7 @@
     <fragment
         android:id="@+id/startFragment"
         android:name="se.arctosoft.vault.StartFragment"
-        android:label="Start"
+        android:label=""
         tools:layout="@layout/fragment_start">
         <action
             android:id="@+id/action_start_to_password"
