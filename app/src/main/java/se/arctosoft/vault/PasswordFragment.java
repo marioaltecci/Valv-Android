@@ -31,6 +31,7 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
 
 import se.arctosoft.vault.data.DirHash;
+import se.arctosoft.vault.data.Password;
 import se.arctosoft.vault.databinding.FragmentPasswordBinding;
 import se.arctosoft.vault.encryption.Encryption;
 import se.arctosoft.vault.utils.Dialogs;
@@ -65,10 +66,11 @@ public class PasswordFragment extends Fragment {
         passwordViewModel = new ViewModelProvider(requireActivity()).get(PasswordViewModel.class);
         settings = Settings.getInstance(requireContext());
 
-        // EN: Get mode and directory URI from arguments / RU: Получаем режим и URI папки из аргументов
-        if (getArguments() != null) {
-            isCreateMode = getArguments().getBoolean("is_create_mode", false);
-            String uriString = getArguments().getString("file_uri"); // EN: Using the same key from StartFragment / RU: Используем тот же ключ из StartFragment
+        // EN: Safely get arguments / RU: Безопасно получаем аргументы
+        Bundle args = getArguments();
+        if (args != null) {
+            isCreateMode = args.getBoolean("is_create_mode", false);
+            String uriString = args.getString("file_uri");
             if (uriString != null) targetDirectoryUri = Uri.parse(uriString);
         }
 
@@ -81,9 +83,7 @@ public class PasswordFragment extends Fragment {
         ViewAnimations.setupElasticLogo(binding.logoContainer, binding.ivLogo);
         binding.btnBack.setOnClickListener(v -> Navigation.findNavController(v).popBackStack());
 
-        // --- PASSWORD INPUT LOGIC ---
         binding.btnUnlock.setEnabled(false);
-        // EN: Update button text to match the task / RU: Обновляем текст кнопки под задачу
         binding.btnUnlock.setText(isCreateMode ? "Create Vault" : "Unlock");
 
         binding.eTPassword.addTextChangedListener(new TextWatcher() {
@@ -92,13 +92,12 @@ public class PasswordFragment extends Fragment {
             @Override
             public void afterTextChanged(Editable s) {
                 int length = (s != null) ? s.length() : 0;
+                binding.btnUnlock.setEnabled(length > 0 && length <= 60);
                 if (length > 60) {
                     binding.textField.setError("Max 60 characters");
                     ViewAnimations.shakeView(binding.textField);
-                    binding.btnUnlock.setEnabled(false);
                 } else {
                     binding.textField.setError(null);
-                    binding.btnUnlock.setEnabled(length > 0);
                 }
             }
         });
@@ -134,26 +133,27 @@ public class PasswordFragment extends Fragment {
     private void performUnlock(char[] password, boolean isBiometric) {
         new Thread(() -> {
             try {
-                // EN: Important: In Create mode, we check if this password already exists / RU: Важно: в режиме создания проверяем, не существует ли уже такой пароль
                 DirHash dirHash = settings.getDirHashForKey(password);
                 
+                // EN: If opening existing but no hash found / RU: Если открываем, но хеш не найден
                 if (!isCreateMode && dirHash == null) {
                     showError("Vault not found or wrong password");
                     return;
                 }
 
+                // EN: Handle new vault creation / RU: Обработка создания нового хранилища
                 if (isCreateMode) {
-                    // EN: Generate new security entry / RU: Генерируем новую запись безопасности
                     byte[] salt = Encryption.generateSecureSalt(Encryption.SALT_LENGTH);
                     dirHash = Encryption.getDirHash(salt, password);
                     
                     if (dirHash != null) {
-                        // EN: Save hash to keys preference / RU: Сохраняем хеш в настройки ключей
+                        // EN: Register new hash in settings / RU: Регистрируем новый хеш в настройках
                         settings.createDirHashEntry(salt, dirHash.hash());
                         
+                        // EN: Important: set DirHash to singleton before adding directory / RU: Важно: ставим DirHash в синглтон перед добавлением папки
+                        Password.getInstance().setDirHash(dirHash);
+                        
                         if (targetDirectoryUri != null) {
-                            // EN: Link the selected folder to this password's logic 
-                            // RU: Привязываем выбранную папку к логике этого пароля
                             settings.addGalleryDirectory(targetDirectoryUri, true, null);
                         }
                     } else {
@@ -165,18 +165,21 @@ public class PasswordFragment extends Fragment {
                 if (isAdded()) {
                     requireActivity().runOnUiThread(() -> {
                         binding.eTPassword.clearFocus();
+                        // EN: Feed data to ViewModel / RU: Передаем данные в ViewModel
                         passwordViewModel.setPassword(password);
                         passwordViewModel.setDirHash(finalDirHash);
+                        
                         binding.eTPassword.setText(null);
                         MainActivity.GLIDE_KEY = System.currentTimeMillis();
                         savedStateHandle.set(LOGIN_SUCCESSFUL, true);
+                        
                         binding.getRoot().postDelayed(() -> {
                             if (isAdded()) NavHostFragment.findNavController(this).popBackStack();
                         }, 50);
                     });
                 }
             } catch (Exception e) {
-                showError("Error: " + e.getMessage());
+                showError("Build error: " + e.getMessage());
             }
         }).start();
     }
@@ -274,4 +277,4 @@ public class PasswordFragment extends Fragment {
         super.onDestroyView();
         binding = null;
     }
-}
+                }
