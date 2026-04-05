@@ -7,6 +7,9 @@ import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.Navigation;
 
@@ -26,17 +29,25 @@ public class StartFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
+        // EN: Apply system bar insets to prevent navigation bar overlap
+        // RU: Применяем системные отступы, чтобы панель навигации не перекрывала кнопки
+        ViewCompat.setOnApplyWindowInsetsListener(binding.getRoot(), (v, windowInsets) -> {
+            Insets insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(insets.left, insets.top, insets.right, insets.bottom);
+            return WindowInsetsCompat.CONSUMED;
+        });
+
         // EN: Setup logo animation / RU: Настройка анимации логотипа
         ViewAnimations.setupElasticLogo(binding.headerArea, binding.ivLogo);
 
-        // EN: Navigate to open existing vault / RU: Переход для открытия существующего хранилища
+        // EN: Navigate to open / RU: Переход для открытия
         binding.btnOpenVault.setOnClickListener(v -> {
             Bundle args = new Bundle();
             args.putBoolean("is_create_mode", false);
             Navigation.findNavController(v).navigate(R.id.action_start_to_password, args);
         });
 
-        // EN: Navigate to create new vault / RU: Переход для создания нового хранилища
+        // EN: Navigate to create / RU: Переход для создания
         binding.btnCreateVault.setOnClickListener(v -> {
             Bundle args = new Bundle();
             args.putBoolean("is_create_mode", true);
