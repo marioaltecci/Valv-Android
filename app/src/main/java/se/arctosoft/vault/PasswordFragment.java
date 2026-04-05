@@ -10,6 +10,7 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.DecelerateInterpolator;
 import android.view.inputmethod.EditorInfo;
 
 import androidx.annotation.NonNull;
@@ -68,14 +69,15 @@ public class PasswordFragment extends Fragment {
         Settings settings = Settings.getInstance(requireContext());
 
         // --- UI ANIMATIONS (REFACTORED) ---
-        // Applying elastic effect and shake from the helper class
-        // Применяем эффект резины и тряску из хелпера
+        // Setup elastic logo effect and shake on error using our new helper class
+        // Настройка эффекта "резины" и тряски при ошибке через наш новый хелпер
         ViewAnimations.setupElasticLogo(binding.logoContainer, binding.ivLogo);
         binding.logoContainer.setOnClickListener(v -> ViewAnimations.shakeView(binding.ivLogo));
 
-        // --- UNLOCK BUTTON LOGIC ---
+        // --- PASSWORD INPUT LOGIC ---
+        // Basic validation: Disable button if empty or too long
+        // Базовая валидация: выключаем кнопку, если поле пустое или слишком длинное
         binding.btnUnlock.setEnabled(false);
-
         binding.eTPassword.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
@@ -84,17 +86,11 @@ public class PasswordFragment extends Fragment {
             public void afterTextChanged(Editable s) {
                 int length = (s != null) ? s.length() : 0;
                 if (length > 60) {
-                    if (binding.textField.getError() == null) {
-                        binding.textField.setError("Max 60 characters");
-                        binding.textField.setErrorEnabled(true);
-                        ViewAnimations.shakeView(binding.textField);
-                    }
+                    binding.textField.setError("Max 60 characters");
+                    ViewAnimations.shakeView(binding.textField);
                     binding.btnUnlock.setEnabled(false);
                 } else {
-                    if (binding.textField.getError() != null) {
-                        binding.textField.setError(null);
-                        binding.textField.setErrorEnabled(false);
-                    }
+                    binding.textField.setError(null);
                     binding.btnUnlock.setEnabled(length > 0);
                 }
             }
@@ -102,9 +98,7 @@ public class PasswordFragment extends Fragment {
 
         binding.eTPassword.setOnEditorActionListener((v, actionId, event) -> {
             if (actionId == EditorInfo.IME_ACTION_GO || actionId == EditorInfo.IME_ACTION_DONE) {
-                if (binding.btnUnlock.isEnabled()) {
-                    binding.btnUnlock.performClick();
-                }
+                if (binding.btnUnlock.isEnabled()) binding.btnUnlock.performClick();
                 return true;
             }
             return false;
@@ -114,6 +108,8 @@ public class PasswordFragment extends Fragment {
             int length = binding.eTPassword.length();
             if (length == 0 || length > 60) return;
 
+            // Update UI state for processing
+            // Обновляем состояние интерфейса для процесса обработки
             binding.btnUnlock.setEnabled(false);
             binding.eTPassword.setEnabled(false);
             binding.biometrics.setEnabled(false);
@@ -132,39 +128,44 @@ public class PasswordFragment extends Fragment {
                         if (dirHash != null) {
                             settings.createDirHashEntry(salt, dirHash.hash());
                         } else {
-                            throw new Exception("Hash computation failed");
+                            throw new Exception("Hash error");
                         }
                     }
 
                     DirHash finalDirHash = dirHash;
                     if (isAdded()) {
                         requireActivity().runOnUiThread(() -> {
-                            // --- SMOOTH FADE TRANSITION ---
-                            // Fading out the screen before popping the backstack
-                            // Плавное исчезновение экрана перед переходом назад
+                            // --- PREMIUM EXIT TRANSITION ---
+                            // Smoothly shrink and fade out the fragment to prevent "jerk" effect
+                            // Плавно уменьшаем и растворяем фрагмент, чтобы избежать эффекта "рывка"
                             binding.getRoot().animate()
                                     .alpha(0f)
+                                    .scaleX(0.95f)
+                                    .scaleY(0.95f)
                                     .setDuration(200)
+                                    .setInterpolator(new DecelerateInterpolator())
                                     .withEndAction(() -> {
                                         passwordViewModel.setDirHash(finalDirHash);
                                         binding.eTPassword.setText(null);
                                         MainActivity.GLIDE_KEY = System.currentTimeMillis();
                                         savedStateHandle.set(LOGIN_SUCCESSFUL, true);
+                                        
+                                        // Final jump to file list
+                                        // Финальный переход к списку файлов
                                         NavHostFragment.findNavController(this).popBackStack();
                                     })
                                     .start();
                         });
                     }
                 } catch (Exception e) {
-                    Log.e(TAG, "Unlock error: ", e);
+                    Log.e(TAG, "Login failed", e);
                     if (isAdded()) {
                         requireActivity().runOnUiThread(() -> {
-                            int currentLen = binding.eTPassword.length();
-                            binding.btnUnlock.setEnabled(currentLen > 0 && currentLen <= 60);
+                            binding.btnUnlock.setEnabled(true);
                             binding.eTPassword.setEnabled(true);
                             binding.biometrics.setEnabled(true);
                             binding.loading.setVisibility(View.GONE);
-                            Toaster.getInstance(requireActivity()).showShort("Invalid password or system error");
+                            Toaster.getInstance(requireActivity()).showShort("Authentication error");
                         });
                     }
                 }
@@ -173,7 +174,9 @@ public class PasswordFragment extends Fragment {
 
         binding.btnHelp.setOnClickListener(v -> Dialogs.showTextDialog(requireContext(), null, getString(R.string.launcher_help_message)));
 
-        // --- BIOMETRICS ---
+        // --- BIOMETRICS SETUP ---
+        // English UI and dual-language comments for maintenance
+        // Английский интерфейс и двуязычные комментарии для удобства
         BiometricManager biometricManager = BiometricManager.from(requireContext());
         if (settings.isBiometricsEnabled() && biometricManager.canAuthenticate(BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS) {
             Executor executor = ContextCompat.getMainExecutor(requireContext());
@@ -189,8 +192,7 @@ public class PasswordFragment extends Fragment {
                             binding.eTPassword.setText(chars, 0, chars.length);
                             binding.btnUnlock.performClick();
                         } catch (Exception e) {
-                            Log.e(TAG, "Biometric decryption failed", e);
-                            Toaster.getInstance(requireActivity()).showShort("Biometric authentication failed");
+                            Toaster.getInstance(requireActivity()).showShort("Biometric decryption error");
                         }
                     }
                 }
@@ -210,11 +212,12 @@ public class PasswordFragment extends Fragment {
                     cipher.init(Cipher.DECRYPT_MODE, secretKey, new IvParameterSpec(iv));
                     biometricPrompt.authenticate(promptInfo, new BiometricPrompt.CryptoObject(cipher));
                 } catch (Exception e) {
-                    Log.e(TAG, "Biometrics unavailable", e);
-                    Toaster.getInstance(requireContext()).showShort("Biometrics currently unavailable");
+                    Toaster.getInstance(requireContext()).showShort("Biometrics unavailable");
                 }
             });
-
+            
+            // Auto-trigger biometrics on start
+            // Авто-вызов биометрии при старте
             binding.biometrics.post(() -> binding.biometrics.performClick());
         } else {
             binding.biometrics.setVisibility(View.GONE);
@@ -226,4 +229,4 @@ public class PasswordFragment extends Fragment {
         super.onDestroyView();
         binding = null;
     }
-}
+                        }
