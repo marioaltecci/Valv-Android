@@ -1,19 +1,20 @@
 <resources>
-    <!-- Base application theme. -->
     <style name="Base.Theme.Valv" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your light theme here. -->
-        <!-- Primary brand color. -->
+        <item name="android:windowBackground">@color/white</item>
+        
+        <item name="android:windowDisablePreview">true</item>
+
         <item name="colorPrimary">@color/primary_color</item>
         <item name="colorPrimaryVariant">@color/primary_dark_color</item>
         <item name="colorOnPrimary">@color/white</item>
-        <!-- Secondary brand color. -->
+        
         <item name="colorSecondary">@color/secondary_color</item>
         <item name="colorSecondaryVariant">@color/secondary_dark_color</item>
         <item name="colorOnSecondary">@color/black</item>
-        <!-- Status bar color. -->
+        
         <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
         <item name="android:windowLightStatusBar">?attr/isLightTheme</item>
-        <!-- Customize your theme here. -->
+        
         <item name="gallery_viewpager_background">@color/white</item>
         <item name="gallery_viewpager_buttons_background">@color/viewpager_buttons_bg_day</item>
         <item name="gallery_viewpager_note_background">@color/viewpager_note_bg_day</item>
