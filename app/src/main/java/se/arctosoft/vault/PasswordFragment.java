@@ -68,8 +68,6 @@ public class PasswordFragment extends Fragment {
         Settings settings = Settings.getInstance(requireContext());
 
         // --- UI ANIMATIONS ---
-        // Setup elastic logo and shake effect
-        // Настройка эффекта "резины" и тряски логотипа
         ViewAnimations.setupElasticLogo(binding.logoContainer, binding.ivLogo);
         binding.logoContainer.setOnClickListener(v -> ViewAnimations.shakeView(binding.ivLogo));
 
@@ -131,8 +129,8 @@ public class PasswordFragment extends Fragment {
                     if (isAdded()) {
                         requireActivity().runOnUiThread(() -> {
                             // --- PRE-EXIT STABILIZATION ---
-                            // Clear focus to ensure keyboard doesn't cause layout flicker
-                            // Убираем фокус, чтобы клавиатура не вызывала моргание лайаута
+                            // 1. Clear focus to hide keyboard and stabilize layout
+                            // 1. Убираем фокус, чтобы спрятать клаву и стабилизировать лайаут
                             binding.eTPassword.clearFocus();
                             
                             passwordViewModel.setDirHash(finalDirHash);
@@ -140,11 +138,13 @@ public class PasswordFragment extends Fragment {
                             MainActivity.GLIDE_KEY = System.currentTimeMillis();
                             savedStateHandle.set(LOGIN_SUCCESSFUL, true);
                             
-                            if (isAdded()) {
-                                // Exit will be handled by accelerated XML animations in NavGraph
-                                // Выход будет обработан ускоренными XML-анимациями в NavGraph
-                                NavHostFragment.findNavController(this).popBackStack();
-                            }
+                            // 2. THE FIX: Tiny delay (50ms) to ensure background fragment is ready
+                            // 2. ФИКС: Крошечная задержка (50мс), чтобы нижний фрагмент успел подготовиться
+                            binding.getRoot().postDelayed(() -> {
+                                if (isAdded()) {
+                                    NavHostFragment.findNavController(this).popBackStack();
+                                }
+                            }, 50);
                         });
                     }
                 } catch (Exception e) {
@@ -215,4 +215,4 @@ public class PasswordFragment extends Fragment {
         super.onDestroyView();
         binding = null;
     }
-}
+                }
