@@ -13,7 +13,7 @@
         android:layout_height="0dp"
         android:gravity="center"
         android:orientation="vertical"
-        app:layout_constraintHeight_percent="0.4"
+        app:layout_constraintHeight_percent="0.35"
         app:layout_constraintTop_toTopOf="parent">
 
         <ImageView
@@ -23,11 +23,12 @@
             android:src="@drawable/logo" />
 
         <TextView
+            android:id="@+id/tvVaultName"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="Vault"
-            android:textSize="32sp"
+            android:layout_marginTop="4dp"
+            android:text="VaultX"
+            android:textSize="36sp"
             android:textStyle="bold"
             android:textColor="?attr/colorOnSurface" />
     </LinearLayout>
