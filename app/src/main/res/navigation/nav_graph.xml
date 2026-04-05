@@ -5,6 +5,14 @@
     android:id="@+id/nav_graph"
     app:startDestination="@id/directory">
 
+    <action
+        android:id="@+id/action_global_password"
+        app:destination="@id/password"
+        app:enterAnim="@anim/fade_in_fast"
+        app:exitAnim="@anim/fade_out_fast"
+        app:popEnterAnim="@anim/fade_in_fast"
+        app:popExitAnim="@anim/fade_out_fast" />
+
     <fragment
         android:id="@+id/directory"
         android:name="se.arctosoft.vault.DirectoryFragment"
