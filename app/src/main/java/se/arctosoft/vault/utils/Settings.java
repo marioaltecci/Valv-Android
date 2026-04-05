@@ -46,6 +46,10 @@ public class Settings {
     private static final String PREF_VAULT_PREFIX = "dirs_";
     private static final String PREF_VAULT_KEYS = "keys";
     private static final String PREF_SHOW_FILENAMES_IN_GRID = "p.gallery.fn";
+    
+    // EN: Key for the current vault file URI / RU: Ключ для текущего URI файла хранилища
+    private static final String PREF_VAULT_URI = "vault_uri";
+
     public static final String PREF_ENCRYPTION_ITERATION_COUNT = "encryption_iteration_count";
     public static final String PREF_ENCRYPTION_USE_DISK_CACHE = "encryption_use_disk_cache";
     public static final String PREF_ENCRYPTION_DELETE_BY_DEFAULT = "encryption_delete_by_default";
@@ -76,6 +80,16 @@ public class Settings {
 
     private SharedPreferences.Editor getSharedPrefsEditor() {
         return context.getSharedPreferences(SHARED_PREFERENCES_NAME, Context.MODE_PRIVATE).edit();
+    }
+
+    // EN: Methods to manage current vault URI / RU: Методы для управления URI текущего хранилища
+    public void setVaultUri(String uri) {
+        getSharedPrefsEditor().putString(PREF_VAULT_URI, uri).apply();
+    }
+
+    @Nullable
+    public String getVaultUri() {
+        return getSharedPrefs().getString(PREF_VAULT_URI, null);
     }
 
     public int getIterationCount() {
