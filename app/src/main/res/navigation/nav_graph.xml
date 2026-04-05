@@ -69,6 +69,12 @@
             android:name="is_create_mode"
             android:defaultValue="false"
             app:argType="boolean" />
+        
+        <action
+            android:id="@+id/action_password_to_directory"
+            app:destination="@id/directory"
+            app:popUpTo="@id/startFragment"
+            app:popUpToInclusive="true" />
     </fragment>
 
     <fragment
