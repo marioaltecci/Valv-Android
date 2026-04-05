@@ -1,6 +1,19 @@
 /*
  * Valv-Android
- * Copyright (c) 2024 Arctosoft AB.
+ * Copyright (C) 2024 Arctosoft AB
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see https://www.gnu.org/licenses/.
  */
 
 package se.arctosoft.vault;
@@ -350,13 +363,13 @@ public abstract class DirectoryBaseFragment extends Fragment implements MenuProv
         galleryGridAdapter.setOnFileDeleted(pos -> galleryPagerAdapter.notifyItemRemoved(pos));
         binding.recyclerView.setAdapter(galleryGridAdapter);
         
-        // EN: Clicking on a folder at root level now opens the password dialog / RU: Клик по папке в корне теперь открывает диалог пароля
+        // EN: Clicking on a folder at root level opens the password dialog / RU: Клик по папке в корне открывает диалог пароля
         galleryGridAdapter.setOnFileCLicked(pos -> {
             GalleryFile file = galleryViewModel.getGalleryFiles().get(pos);
             if (file.isDirectory() && galleryViewModel.isRootDir()) {
-                // EN: Show popup dialog here / RU: Показываем всплывающее окно здесь
+                // EN: Show popup dialog from Dialogs class / RU: Показываем диалог из класса Dialogs
                 Dialogs.showPasswordDialog(requireContext(), file, (pass) -> {
-                     // EN: Proceed if password is correct / RU: Продолжаем, если пароль верный
+                     // EN: Proceed if password was entered / RU: Продолжаем после ввода пароля
                      galleryViewModel.setClickedDirectoryUri(file.getUri());
                      showViewpager(true, pos, true);
                 });
@@ -681,4 +694,4 @@ public abstract class DirectoryBaseFragment extends Fragment implements MenuProv
         }
         super.onDestroy();
     }
-                        }
+                            }
