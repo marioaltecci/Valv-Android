@@ -191,7 +191,16 @@ public abstract class DirectoryBaseFragment extends Fragment implements MenuProv
 
         if (ab != null) {
             ab.setDisplayHomeAsUpEnabled(true);
-            ab.setTitle(isAllFolder ? getString(R.string.gallery_all) : FileStuff.getFilenameFromUri(galleryViewModel.getCurrentDirectoryUri(), false));
+            
+            // EN: Get raw title from Uri / RU: Получаем сырой заголовок из Uri
+            String title = isAllFolder ? getString(R.string.gallery_all) : FileStuff.getFilenameFromUri(galleryViewModel.getCurrentDirectoryUri(), false);
+            
+            // EN: Clean up primary storage prefix / RU: Очищаем префикс основного хранилища
+            if (title != null && title.contains("primary:")) {
+                title = title.replace("primary:", "/");
+            }
+            
+            ab.setTitle(title);
             return true;
         }
         return false;
@@ -370,7 +379,6 @@ public abstract class DirectoryBaseFragment extends Fragment implements MenuProv
         galleryPagerAdapter = new GalleryPagerAdapter(requireActivity(), galleryViewModel.getGalleryFiles(), pos -> galleryGridAdapter.notifyItemRemoved(pos), galleryViewModel.getCurrentDocumentDirectory(),
                 galleryViewModel.isAllFolder(), galleryViewModel.getNestedPath(), galleryViewModel);
         binding.viewPager.setAdapter(galleryPagerAdapter);
-        //Log.e(TAG, "setupViewpager: " + viewModel.getCurrentPosition() + " " + viewModel.isFullscreen());
         binding.viewPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
             @Override
             public void onPageSelected(int position) {
@@ -391,7 +399,6 @@ public abstract class DirectoryBaseFragment extends Fragment implements MenuProv
     }
 
     void showViewpager(boolean show, int pos, boolean animate) {
-        //Log.e(TAG, "showViewpager: " + show + " " + pos);
         galleryViewModel.setViewpagerVisible(show);
         galleryPagerAdapter.showPager(show);
         FragmentActivity activity = getActivity();
@@ -435,41 +442,13 @@ public abstract class DirectoryBaseFragment extends Fragment implements MenuProv
             synchronized (LOCK) {
                 List<GalleryFile> galleryFiles = galleryViewModel.getGalleryFiles();
                 if (order == ORDER_BY_NEWEST) {
-                    galleryFiles.sort((o1, o2) -> {
-                        if (o1.getLastModified() > o2.getLastModified()) {
-                            return -1;
-                        } else if (o1.getLastModified() < o2.getLastModified()) {
-                            return 1;
-                        }
-                        return 0;
-                    });
+                    galleryFiles.sort((o1, o2) -> Long.compare(o2.getLastModified(), o1.getLastModified()));
                 } else if (order == ORDER_BY_OLDEST) {
-                    galleryFiles.sort((o1, o2) -> {
-                        if (o1.getLastModified() > o2.getLastModified()) {
-                            return 1;
-                        } else if (o1.getLastModified() < o2.getLastModified()) {
-                            return -1;
-                        }
-                        return 0;
-                    });
+                    galleryFiles.sort((o1, o2) -> Long.compare(o1.getLastModified(), o2.getLastModified()));
                 } else if (order == ORDER_BY_LARGEST) {
-                    galleryFiles.sort((o1, o2) -> {
-                        if (o1.getSize() > o2.getSize()) {
-                            return -1;
-                        } else if (o1.getSize() < o2.getSize()) {
-                            return 1;
-                        }
-                        return 0;
-                    });
+                    galleryFiles.sort((o1, o2) -> Long.compare(o2.getSize(), o1.getSize()));
                 } else if (order == ORDER_BY_SMALLEST) {
-                    galleryFiles.sort((o1, o2) -> {
-                        if (o1.getSize() > o2.getSize()) {
-                            return 1;
-                        } else if (o1.getSize() < o2.getSize()) {
-                            return -1;
-                        }
-                        return 0;
-                    });
+                    galleryFiles.sort((o1, o2) -> Long.compare(o1.getSize(), o2.getSize()));
                 } else {
                     Collections.shuffle(galleryFiles);
                 }
@@ -671,5 +650,4 @@ public abstract class DirectoryBaseFragment extends Fragment implements MenuProv
         }
         super.onDestroy();
     }
-
-}
+            }
