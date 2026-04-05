@@ -51,9 +51,10 @@ public class PasswordFragment extends Fragment {
     private BiometricPrompt biometricPrompt;
     private BiometricPrompt.PromptInfo promptInfo;
 
+    // Для эффекта резины
     private float lastTouchY;
-    private final float RESISTANCE = 0.25f; // Сделал чуть туже, чтобы точно не коснулся текста
-    private final int CLICK_THRESHOLD = 15; 
+    private final float RESISTANCE = 0.15f; 
+    private final float MAX_DRAG = 30f; 
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -73,7 +74,7 @@ public class PasswordFragment extends Fragment {
 
         Settings settings = Settings.getInstance(requireContext());
 
-        // --- ЛОГИКА ТЯНУЧЕГО ЛОГОТИПА (БЕЗ ДВИЖЕНИЯ ТЕКСТА) ---
+        // --- ЛОГИКА ТРЯСКИ И РАЗТЯГИВАНИЯ ЛОГОТИПА ---
         binding.logoContainer.setOnClickListener(v -> shakeView(binding.ivLogo));
 
         binding.logoContainer.setOnTouchListener((v, event) -> {
@@ -81,54 +82,60 @@ public class PasswordFragment extends Fragment {
                 case MotionEvent.ACTION_DOWN:
                     lastTouchY = event.getRawY();
                     return true;
-
                 case MotionEvent.ACTION_MOVE:
                     float deltaY = event.getRawY() - lastTouchY;
-                    if (deltaY > 0) { 
-                        float dragAmount = deltaY * RESISTANCE;
-                        
-                        // Двигаем и растягиваем ТОЛЬКО контейнер логотипа
-                        v.setTranslationY(dragAmount);
-                        v.setScaleY(1f + (dragAmount * 0.003f)); 
-                        
-                        // Строки с tvTitle.setTranslationY удалены, текст теперь на месте!
+                    if (deltaY > 0) {
+                        float drag = Math.min(deltaY * RESISTANCE, MAX_DRAG);
+                        v.setTranslationY(drag);
+                        v.setScaleY(1f + (drag * 0.002f));
                     }
                     break;
-
                 case MotionEvent.ACTION_UP:
                 case MotionEvent.ACTION_CANCEL:
-                    float finalY = v.getTranslationY();
-
-                    // Резкий возврат с отскоком
+                    float currentY = v.getTranslationY();
                     v.animate().translationY(0).scaleY(1f)
-                            .setInterpolator(new OvershootInterpolator(3.5f))
-                            .setDuration(450).start();
-
-                    if (finalY < CLICK_THRESHOLD) {
-                        v.performClick();
-                    }
+                            .setInterpolator(new OvershootInterpolator(4f))
+                            .setDuration(400).start();
+                    if (currentY < 15) v.performClick();
                     break;
             }
             return true;
         });
 
-        // --- ОСТАЛЬНАЯ ЛОГИКА (БЕЗ ИЗМЕНЕНИЙ) ---
         binding.btnUnlock.setEnabled(false);
+
         binding.eTPassword.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            
             @Override
             public void afterTextChanged(Editable s) {
                 int length = (s != null) ? s.length() : 0;
                 if (length > 60) {
-                    binding.textField.setError("max 60");
-                    shakeView(binding.textField);
+                    if (binding.textField.getError() == null) {
+                        binding.textField.setError("max 60");
+                        binding.textField.setErrorEnabled(true);
+                        shakeView(binding.textField);
+                    }
                     binding.btnUnlock.setEnabled(false);
                 } else {
-                    binding.textField.setError(null);
+                    if (binding.textField.getError() != null) {
+                        binding.textField.setError(null);
+                        binding.textField.setErrorEnabled(false);
+                    }
                     binding.btnUnlock.setEnabled(length > 0);
                 }
             }
+        });
+
+        binding.eTPassword.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_GO || actionId == EditorInfo.IME_ACTION_DONE) {
+                if (binding.btnUnlock.setEnabled()) {
+                    binding.btnUnlock.performClick();
+                }
+                return true;
+            }
+            return false;
         });
 
         binding.btnUnlock.setOnClickListener(v -> {
@@ -150,8 +157,13 @@ public class PasswordFragment extends Fragment {
                     if (dirHash == null) {
                         byte[] salt = Encryption.generateSecureSalt(Encryption.SALT_LENGTH);
                         dirHash = Encryption.getDirHash(salt, temp);
-                        if (dirHash != null) settings.createDirHashEntry(salt, dirHash.hash());
+                        if (dirHash != null) {
+                            settings.createDirHashEntry(salt, dirHash.hash());
+                        } else {
+                            throw new Exception("Не удалось создать хэш директории");
+                        }
                     }
+
                     DirHash finalDirHash = dirHash;
                     if (isAdded()) {
                         requireActivity().runOnUiThread(() -> {
@@ -163,9 +175,11 @@ public class PasswordFragment extends Fragment {
                         });
                     }
                 } catch (Exception e) {
+                    Log.e(TAG, "Критическая ошибка разблокировки", e);
                     if (isAdded()) {
                         requireActivity().runOnUiThread(() -> {
-                            binding.btnUnlock.setEnabled(binding.eTPassword.length() > 0);
+                            int currentLen = binding.eTPassword.length();
+                            binding.btnUnlock.setEnabled(currentLen > 0 && currentLen <= 60);
                             binding.eTPassword.setEnabled(true);
                             binding.biometrics.setEnabled(true);
                             binding.loading.setVisibility(View.GONE);
@@ -176,7 +190,8 @@ public class PasswordFragment extends Fragment {
             }).start();
         });
 
-        // Биометрия
+        binding.btnHelp.setOnClickListener(v -> Dialogs.showTextDialog(requireContext(), null, getString(R.string.launcher_help_message)));
+
         BiometricManager biometricManager = BiometricManager.from(requireContext());
         if (settings.isBiometricsEnabled() && biometricManager.canAuthenticate(BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS) {
             Executor executor = ContextCompat.getMainExecutor(requireContext());
@@ -192,6 +207,7 @@ public class PasswordFragment extends Fragment {
                             binding.eTPassword.setText(chars, 0, chars.length);
                             binding.btnUnlock.performClick();
                         } catch (Exception e) {
+                            Log.e(TAG, "Decrypt error", e);
                             Toaster.getInstance(requireActivity()).showShort("Ошибка биометрии");
                         }
                     }
@@ -201,25 +217,32 @@ public class PasswordFragment extends Fragment {
             promptInfo = new BiometricPrompt.PromptInfo.Builder()
                     .setTitle(getString(R.string.biometrics_unlock_title))
                     .setNegativeButtonText(getString(R.string.cancel))
-                    .setAllowedAuthenticators(BIOMETRIC_STRONG).build();
+                    .setAllowedAuthenticators(BIOMETRIC_STRONG)
+                    .build();
 
             binding.biometrics.setOnClickListener(v -> {
                 try {
                     Cipher cipher = Encryption.getBiometricCipher();
                     SecretKey secretKey = Encryption.getOrGenerateBiometricSecretKey();
                     byte[] iv = settings.getBiometricsIv();
+                    if (iv == null) throw new Exception("IV не найден");
                     cipher.init(Cipher.DECRYPT_MODE, secretKey, new IvParameterSpec(iv));
                     biometricPrompt.authenticate(promptInfo, new BiometricPrompt.CryptoObject(cipher));
                 } catch (Exception e) {
                     Toaster.getInstance(requireContext()).showShort("Биометрия недоступна");
                 }
             });
+
             binding.biometrics.post(() -> binding.biometrics.performClick());
+        } else {
+            binding.biometrics.setVisibility(View.GONE);
         }
     }
 
     private void shakeView(View view) {
-        ObjectAnimator.ofFloat(view, "translationX", 0, 20, -20, 20, -20, 15, -15, 0).setDuration(400).start();
+        ObjectAnimator shaker = ObjectAnimator.ofFloat(view, "translationX", 0, 20, -20, 20, -20, 15, -15, 0);
+        shaker.setDuration(400);
+        shaker.start();
     }
 
     @Override
@@ -227,4 +250,4 @@ public class PasswordFragment extends Fragment {
         super.onDestroyView();
         binding = null;
     }
-}
+                        }
