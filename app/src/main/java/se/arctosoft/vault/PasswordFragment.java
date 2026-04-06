@@ -3,6 +3,8 @@ package se.arctosoft.vault;
 import static androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG;
 
 import android.annotation.SuppressLint;
+import android.content.res.ColorStateList;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -23,6 +25,8 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.Navigation;
 import androidx.navigation.fragment.NavHostFragment;
 
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+
 import java.util.concurrent.Executor;
 
 import javax.crypto.Cipher;
@@ -32,7 +36,6 @@ import javax.crypto.spec.IvParameterSpec;
 import se.arctosoft.vault.data.DirHash;
 import se.arctosoft.vault.databinding.FragmentPasswordBinding;
 import se.arctosoft.vault.encryption.Encryption;
-import se.arctosoft.vault.utils.Dialogs;
 import se.arctosoft.vault.utils.Settings;
 import se.arctosoft.vault.utils.Toaster;
 import se.arctosoft.vault.utils.ViewAnimations;
@@ -70,6 +73,7 @@ public class PasswordFragment extends Fragment {
         Settings settings = Settings.getInstance(requireContext());
 
         // --- UI ANIMATIONS ---
+        // EN: Setup elastic animation for logo container / RU: Настройка упругой анимации для контейнера лого
         ViewAnimations.setupElasticLogo(binding.logoContainer, binding.ivLogo);
         binding.logoContainer.setOnClickListener(v -> ViewAnimations.shakeView(binding.ivLogo));
 
@@ -179,7 +183,24 @@ public class PasswordFragment extends Fragment {
             }).start();
         });
 
-        binding.btnHelp.setOnClickListener(v -> Dialogs.showTextDialog(requireContext(), null, getString(R.string.launcher_help_message)));
+        // --- DYNAMIC HELP BUTTON COLOR LOGIC ---
+        binding.btnHelp.setOnClickListener(v -> {
+            // EN: Save the original icon tint (usually gray) / RU: Сохраняем оригинальный цвет иконки (обычно серый)
+            ColorStateList originalTint = binding.btnHelp.getIconTint();
+            
+            // EN: Change icon color to Yellow (Hex: #FFC107 - Material Amber) / RU: Меняем цвет иконки на желтый
+            binding.btnHelp.setIconTint(ColorStateList.valueOf(Color.parseColor("#FFC107")));
+
+            // EN: Create and show dialog directly to track dismissal / RU: Создаем и показываем диалог, чтобы отследить его закрытие
+            new MaterialAlertDialogBuilder(requireContext())
+                    .setMessage(getString(R.string.launcher_help_message))
+                    .setPositiveButton(android.R.string.ok, null)
+                    .setOnDismissListener(dialog -> {
+                        // EN: Restore original color when dialog closes / RU: Возвращаем исходный цвет при закрытии диалога
+                        binding.btnHelp.setIconTint(originalTint);
+                    })
+                    .show();
+        });
 
         // --- BIOMETRICS SETUP ---
         BiometricManager biometricManager = BiometricManager.from(requireContext());
