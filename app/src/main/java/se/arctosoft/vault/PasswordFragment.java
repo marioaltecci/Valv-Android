@@ -10,7 +10,6 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.animation.AccelerateDecelerateInterpolator;
 import android.view.inputmethod.EditorInfo;
 
 import androidx.annotation.NonNull;
@@ -50,9 +49,6 @@ public class PasswordFragment extends Fragment {
     private BiometricPrompt biometricPrompt;
     private BiometricPrompt.PromptInfo promptInfo;
 
-    // EN: Animation flag to prevent flickering / RU: Флаг анимации для предотвращения мерцания
-    private boolean isButtonVisible = false;
-
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         binding = FragmentPasswordBinding.inflate(inflater, container, false);
@@ -62,6 +58,8 @@ public class PasswordFragment extends Fragment {
     @SuppressLint("ClickableViewAccessibility")
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        if (binding == null) return;
+        
         passwordViewModel = new ViewModelProvider(requireActivity()).get(PasswordViewModel.class);
 
         savedStateHandle = Navigation.findNavController(view)
@@ -75,11 +73,10 @@ public class PasswordFragment extends Fragment {
         ViewAnimations.setupElasticLogo(binding.logoContainer, binding.ivLogo);
         binding.logoContainer.setOnClickListener(v -> ViewAnimations.shakeView(binding.ivLogo));
 
-        // --- PROTON STYLE BUTTON ANIMATION ---
-        // EN: Setup initial state / RU: Начальное состояние кнопки
-        binding.btnUnlock.setTranslationY(200f); // EN: Start below the screen / RU: Начало за пределами экрана
-        binding.btnUnlock.setAlpha(0f);
+        // --- INITIAL UI STATE ---
+        // EN: Button is hidden until user types / RU: Кнопка скрыта, пока пользователь не начнет ввод
         binding.btnUnlock.setVisibility(View.GONE);
+        binding.btnUnlock.setEnabled(false);
 
         // --- PASSWORD INPUT LOGIC ---
         binding.eTPassword.addTextChangedListener(new TextWatcher() {
@@ -89,17 +86,26 @@ public class PasswordFragment extends Fragment {
             @Override
             public void afterTextChanged(Editable s) {
                 int length = (s != null) ? s.length() : 0;
+                
+                // EN: Simple toggle to avoid crash / RU: Простое переключение видимости без опасных смещений
+                if (length > 0) {
+                    if (binding.btnUnlock.getVisibility() != View.VISIBLE) {
+                        binding.btnUnlock.setAlpha(0f);
+                        binding.btnUnlock.setVisibility(View.VISIBLE);
+                        binding.btnUnlock.animate().alpha(1f).setDuration(200).start();
+                    }
+                    binding.btnUnlock.setEnabled(length <= 60);
+                } else {
+                    binding.btnUnlock.setVisibility(View.GONE);
+                    binding.btnUnlock.setEnabled(false);
+                }
+
                 if (length > 60) {
                     binding.textField.setError("Max 60 characters");
                     ViewAnimations.shakeView(binding.textField);
-                    binding.btnUnlock.setEnabled(false);
                 } else {
                     binding.textField.setError(null);
-                    binding.btnUnlock.setEnabled(length > 0);
                 }
-
-                // EN: Trigger Proton-style animation / RU: Запуск анимации в стиле Proton
-                animateUnlockButton(length > 0);
             }
         });
 
@@ -111,10 +117,10 @@ public class PasswordFragment extends Fragment {
             return false;
         });
 
-        // EN: Auto-show button when focused / RU: Показ кнопки при фокусе
+        // EN: Auto-focus handling / RU: Обработка фокуса
         binding.eTPassword.setOnFocusChangeListener((v, hasFocus) -> {
             if (hasFocus && binding.eTPassword.length() > 0) {
-                animateUnlockButton(true);
+                binding.btnUnlock.setVisibility(View.VISIBLE);
             }
         });
 
@@ -139,8 +145,6 @@ public class PasswordFragment extends Fragment {
                         dirHash = Encryption.getDirHash(salt, temp);
                         if (dirHash != null) {
                             settings.createDirHashEntry(salt, dirHash.hash());
-                        } else {
-                            throw new Exception("Hash error");
                         }
                     }
 
@@ -185,10 +189,9 @@ public class PasswordFragment extends Fragment {
                 @Override
                 public void onAuthenticationSucceeded(@NonNull BiometricPrompt.AuthenticationResult result) {
                     super.onAuthenticationSucceeded(result);
-                    BiometricPrompt.CryptoObject cryptoObject = result.getCryptoObject();
-                    if (cryptoObject != null) {
+                    if (result.getCryptoObject() != null) {
                         try {
-                            byte[] decrypted = cryptoObject.getCipher().doFinal(settings.getBiometricsData());
+                            byte[] decrypted = result.getCryptoObject().getCipher().doFinal(settings.getBiometricsData());
                             char[] chars = Encryption.toChars(decrypted);
                             binding.eTPassword.setText(chars, 0, chars.length);
                             binding.btnUnlock.performClick();
@@ -209,43 +212,15 @@ public class PasswordFragment extends Fragment {
                 try {
                     Cipher cipher = Encryption.getBiometricCipher();
                     SecretKey secretKey = Encryption.getOrGenerateBiometricSecretKey();
-                    byte[] iv = settings.getBiometricsIv();
-                    cipher.init(Cipher.DECRYPT_MODE, secretKey, new IvParameterSpec(iv));
+                    cipher.init(Cipher.DECRYPT_MODE, secretKey, new IvParameterSpec(settings.getBiometricsIv()));
                     biometricPrompt.authenticate(promptInfo, new BiometricPrompt.CryptoObject(cipher));
                 } catch (Exception e) {
                     Toaster.getInstance(requireContext()).showShort("Biometrics unavailable");
                 }
             });
-            
             binding.biometrics.post(() -> binding.biometrics.performClick());
         } else {
             binding.biometrics.setVisibility(View.GONE);
-        }
-    }
-
-    /**
-     * EN: Smoothly animates the unlock button up or down / RU: Плавно анимирует кнопку разблокировки вверх или вниз
-     */
-    private void animateUnlockButton(boolean show) {
-        if (show == isButtonVisible) return;
-        isButtonVisible = show;
-
-        if (show) {
-            binding.btnUnlock.setVisibility(View.VISIBLE);
-            binding.btnUnlock.animate()
-                    .translationY(0)
-                    .alpha(1f)
-                    .setDuration(300)
-                    .setInterpolator(new AccelerateDecelerateInterpolator())
-                    .start();
-        } else {
-            binding.btnUnlock.animate()
-                    .translationY(200f)
-                    .alpha(0f)
-                    .setDuration(250)
-                    .setInterpolator(new AccelerateDecelerateInterpolator())
-                    .withEndAction(() -> binding.btnUnlock.setVisibility(View.GONE))
-                    .start();
         }
     }
 
@@ -254,4 +229,4 @@ public class PasswordFragment extends Fragment {
         super.onDestroyView();
         binding = null;
     }
-}
+                }
