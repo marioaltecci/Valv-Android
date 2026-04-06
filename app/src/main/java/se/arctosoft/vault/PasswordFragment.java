@@ -13,6 +13,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
+import android.widget.TextView;  // ✅ ДОБАВЛЕН ИМПОРТ
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -66,10 +67,8 @@ public class PasswordFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         if (binding == null) return;
         
-        // EN: Initialize ViewModel | RU: Инициализация ViewModel
         passwordViewModel = new ViewModelProvider(requireActivity()).get(PasswordViewModel.class);
 
-        // EN: Get saved state handle for navigation result | RU: Получаем обработчик сохранённого состояния для результата навигации
         savedStateHandle = Navigation.findNavController(view)
                 .getPreviousBackStackEntry()
                 .getSavedStateHandle();
@@ -77,26 +76,25 @@ public class PasswordFragment extends Fragment {
 
         Settings settings = Settings.getInstance(requireContext());
 
-        // --- EN: UI ANIMATIONS | RU: АНИМАЦИИ ИНТЕРФЕЙСА ---
+        // --- UI ANIMATIONS ---
         // EN: Setup elastic animation for logo container | RU: Настройка упругой анимации для контейнера логотипа
         ViewAnimations.setupElasticLogo(binding.logoContainer, binding.ivLogo);
         binding.logoContainer.setOnClickListener(v -> ViewAnimations.shakeView(binding.ivLogo));
 
-        // --- EN: INITIAL UI STATE | RU: НАЧАЛЬНОЕ СОСТОЯНИЕ ИНТЕРФЕЙСА ---
+        // --- INITIAL UI STATE ---
         // EN: Button is hidden until user types | RU: Кнопка скрыта, пока пользователь не начнёт ввод
         binding.btnUnlock.setVisibility(View.GONE);
         binding.btnUnlock.setEnabled(false);
 
-        // --- EN: CUSTOM CHARACTER COUNTER SETUP | RU: НАСТРОЙКА ПОЛЬЗОВАТЕЛЬСКОГО СЧЁТЧИКА СИМВОЛОВ ---
-        // EN: Find custom counter TextView from layout | RU: Находим свой счётчик в разметке
-        customCharCounter = binding.getRoot().findViewById(R.id.tvCharCounter);
-        
-        // EN: Initialize counter with default value | RU: Инициализируем счётчик значением по умолчанию
+        // --- CUSTOM CHARACTER COUNTER SETUP ---
+        // EN: Initialize custom counter from layout | RU: Инициализация пользовательского счётчика из разметки
+        customCharCounter = view.findViewById(R.id.tvCharCounter);
         if (customCharCounter != null) {
             customCharCounter.setText("0/60");
         }
 
-        // --- EN: PASSWORD INPUT LOGIC WITH COUNTER | RU: ЛОГИКА ВВОДА ПАРОЛЯ СО СЧЁТЧИКОМ ---
+        // --- PASSWORD INPUT LOGIC WITH COUNTER ---
+        // EN: Password input logic with custom character counter | RU: Логика ввода пароля с пользовательским счётчиком
         binding.eTPassword.addTextChangedListener(new TextWatcher() {
             @Override 
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
@@ -112,7 +110,7 @@ public class PasswordFragment extends Fragment {
                 if (customCharCounter != null) {
                     customCharCounter.setText(length + "/60");
                     
-                    // EN: Change color to red if limit exceeded (max 60 chars) | RU: Меняем цвет на красный при превышении лимита (макс. 60 символов)
+                    // EN: Change color to red if limit exceeded (max 60 chars) | RU: Меняем цвет на красный при превышении лимита
                     if (length > 60) {
                         customCharCounter.setTextColor(Color.RED);
                     } else {
@@ -121,8 +119,7 @@ public class PasswordFragment extends Fragment {
                     }
                 }
                 
-                // --- EN: Toggle unlock button visibility | RU: Переключение видимости кнопки разблокировки ---
-                // EN: Simple toggle to avoid crash | RU: Простое переключение видимости без опасных смещений
+                // EN: Toggle unlock button visibility | RU: Переключение видимости кнопки разблокировки
                 if (length > 0 && length <= 60) {
                     if (binding.btnUnlock.getVisibility() != View.VISIBLE) {
                         binding.btnUnlock.setAlpha(0f);
@@ -131,13 +128,15 @@ public class PasswordFragment extends Fragment {
                     }
                     binding.btnUnlock.setEnabled(true);
                 } else {
-                    binding.btnUnlock.setVisibility(View.GONE);
+                    if (length == 0) {
+                        binding.btnUnlock.setVisibility(View.GONE);
+                    }
                     binding.btnUnlock.setEnabled(false);
                 }
 
-                // --- EN: Show error if max length exceeded | RU: Показываем ошибку при превышении максимальной длины ---
+                // EN: Show error if max length exceeded | RU: Показываем ошибку при превышении максимальной длины
                 if (length > 60) {
-                    binding.textField.setError(getString(R.string.max_characters_error, 60));
+                    binding.textField.setError("Max 60 characters");
                     ViewAnimations.shakeView(binding.textField);
                 } else {
                     binding.textField.setError(null);
@@ -157,11 +156,14 @@ public class PasswordFragment extends Fragment {
         // EN: Auto-focus handling | RU: Обработка автоматического фокуса
         binding.eTPassword.setOnFocusChangeListener((v, hasFocus) -> {
             if (hasFocus && binding.eTPassword.length() > 0 && binding.eTPassword.length() <= 60) {
-                binding.btnUnlock.setVisibility(View.VISIBLE);
+                if (binding.btnUnlock.getVisibility() != View.VISIBLE) {
+                    binding.btnUnlock.setVisibility(View.VISIBLE);
+                }
             }
         });
 
-        // --- EN: UNLOCK BUTTON LOGIC | RU: ЛОГИКА КНОПКИ РАЗБЛОКИРОВКИ ---
+        // --- UNLOCK BUTTON LOGIC ---
+        // EN: Unlock button click handler | RU: Обработчик нажатия кнопки разблокировки
         binding.btnUnlock.setOnClickListener(v -> {
             int length = binding.eTPassword.length();
             if (length == 0 || length > 60) return;
@@ -221,7 +223,8 @@ public class PasswordFragment extends Fragment {
             }).start();
         });
 
-        // --- EN: HELP BUTTON WITH COLOR CHANGE EFFECT | RU: КНОПКА ПОМОЩИ С ЭФФЕКТОМ СМЕНЫ ЦВЕТА ---
+        // --- DYNAMIC HELP BUTTON COLOR LOGIC ---
+        // EN: Help button with color change effect | RU: Кнопка помощи с эффектом смены цвета
         binding.btnHelp.setOnClickListener(v -> {
             // EN: Save the original icon tint (usually gray) | RU: Сохраняем оригинальный цвет иконки (обычно серый)
             ColorStateList originalTint = binding.btnHelp.getIconTint();
@@ -240,7 +243,8 @@ public class PasswordFragment extends Fragment {
                     .show();
         });
 
-        // --- EN: BIOMETRICS SETUP | RU: НАСТРОЙКА БИОМЕТРИИ ---
+        // --- BIOMETRICS SETUP ---
+        // EN: Biometric authentication setup | RU: Настройка биометрической аутентификации
         BiometricManager biometricManager = BiometricManager.from(requireContext());
         if (settings.isBiometricsEnabled() && biometricManager.canAuthenticate(BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS) {
             Executor executor = ContextCompat.getMainExecutor(requireContext());
@@ -288,4 +292,4 @@ public class PasswordFragment extends Fragment {
         super.onDestroyView();
         binding = null;
     }
-}
+                                                          }
