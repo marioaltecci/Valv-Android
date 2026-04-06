@@ -52,6 +52,9 @@ public class PasswordFragment extends Fragment {
     private BiometricPrompt biometricPrompt;
     private BiometricPrompt.PromptInfo promptInfo;
 
+    // EN: Custom counter TextView for password length display | RU: Свой счётчик для отображения длины пароля
+    private TextView customCharCounter;
+
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         binding = FragmentPasswordBinding.inflate(inflater, container, false);
@@ -63,8 +66,10 @@ public class PasswordFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         if (binding == null) return;
         
+        // EN: Initialize ViewModel | RU: Инициализация ViewModel
         passwordViewModel = new ViewModelProvider(requireActivity()).get(PasswordViewModel.class);
 
+        // EN: Get saved state handle for navigation result | RU: Получаем обработчик сохранённого состояния для результата навигации
         savedStateHandle = Navigation.findNavController(view)
                 .getPreviousBackStackEntry()
                 .getSavedStateHandle();
@@ -72,40 +77,67 @@ public class PasswordFragment extends Fragment {
 
         Settings settings = Settings.getInstance(requireContext());
 
-        // --- UI ANIMATIONS ---
-        // EN: Setup elastic animation for logo container / RU: Настройка упругой анимации для контейнера лого
+        // --- EN: UI ANIMATIONS | RU: АНИМАЦИИ ИНТЕРФЕЙСА ---
+        // EN: Setup elastic animation for logo container | RU: Настройка упругой анимации для контейнера логотипа
         ViewAnimations.setupElasticLogo(binding.logoContainer, binding.ivLogo);
         binding.logoContainer.setOnClickListener(v -> ViewAnimations.shakeView(binding.ivLogo));
 
-        // --- INITIAL UI STATE ---
-        // EN: Button is hidden until user types / RU: Кнопка скрыта, пока пользователь не начнет ввод
+        // --- EN: INITIAL UI STATE | RU: НАЧАЛЬНОЕ СОСТОЯНИЕ ИНТЕРФЕЙСА ---
+        // EN: Button is hidden until user types | RU: Кнопка скрыта, пока пользователь не начнёт ввод
         binding.btnUnlock.setVisibility(View.GONE);
         binding.btnUnlock.setEnabled(false);
 
-        // --- PASSWORD INPUT LOGIC ---
+        // --- EN: CUSTOM CHARACTER COUNTER SETUP | RU: НАСТРОЙКА ПОЛЬЗОВАТЕЛЬСКОГО СЧЁТЧИКА СИМВОЛОВ ---
+        // EN: Find custom counter TextView from layout | RU: Находим свой счётчик в разметке
+        customCharCounter = binding.getRoot().findViewById(R.id.tvCharCounter);
+        
+        // EN: Initialize counter with default value | RU: Инициализируем счётчик значением по умолчанию
+        if (customCharCounter != null) {
+            customCharCounter.setText("0/60");
+        }
+
+        // --- EN: PASSWORD INPUT LOGIC WITH COUNTER | RU: ЛОГИКА ВВОДА ПАРОЛЯ СО СЧЁТЧИКОМ ---
         binding.eTPassword.addTextChangedListener(new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override 
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            
+            @Override 
+            public void onTextChanged(CharSequence s, int start, int before, int count) {}
             
             @Override
             public void afterTextChanged(Editable s) {
                 int length = (s != null) ? s.length() : 0;
                 
-                // EN: Simple toggle to avoid crash / RU: Простое переключение видимости без опасных смещений
-                if (length > 0) {
+                // --- EN: Update custom counter display | RU: Обновление отображения пользовательского счётчика ---
+                if (customCharCounter != null) {
+                    customCharCounter.setText(length + "/60");
+                    
+                    // EN: Change color to red if limit exceeded (max 60 chars) | RU: Меняем цвет на красный при превышении лимита (макс. 60 символов)
+                    if (length > 60) {
+                        customCharCounter.setTextColor(Color.RED);
+                    } else {
+                        // EN: Set to secondary text color (gray) | RU: Устанавливаем вторичный цвет текста (серый)
+                        customCharCounter.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.secondary_text_dark));
+                    }
+                }
+                
+                // --- EN: Toggle unlock button visibility | RU: Переключение видимости кнопки разблокировки ---
+                // EN: Simple toggle to avoid crash | RU: Простое переключение видимости без опасных смещений
+                if (length > 0 && length <= 60) {
                     if (binding.btnUnlock.getVisibility() != View.VISIBLE) {
                         binding.btnUnlock.setAlpha(0f);
                         binding.btnUnlock.setVisibility(View.VISIBLE);
                         binding.btnUnlock.animate().alpha(1f).setDuration(200).start();
                     }
-                    binding.btnUnlock.setEnabled(length <= 60);
+                    binding.btnUnlock.setEnabled(true);
                 } else {
                     binding.btnUnlock.setVisibility(View.GONE);
                     binding.btnUnlock.setEnabled(false);
                 }
 
+                // --- EN: Show error if max length exceeded | RU: Показываем ошибку при превышении максимальной длины ---
                 if (length > 60) {
-                    binding.textField.setError("Max 60 characters");
+                    binding.textField.setError(getString(R.string.max_characters_error, 60));
                     ViewAnimations.shakeView(binding.textField);
                 } else {
                     binding.textField.setError(null);
@@ -113,6 +145,7 @@ public class PasswordFragment extends Fragment {
             }
         });
 
+        // EN: Handle keyboard action (GO/DONE) | RU: Обработка действия клавиатуры (GO/ГОТОВО)
         binding.eTPassword.setOnEditorActionListener((v, actionId, event) -> {
             if (actionId == EditorInfo.IME_ACTION_GO || actionId == EditorInfo.IME_ACTION_DONE) {
                 if (binding.btnUnlock.isEnabled()) binding.btnUnlock.performClick();
@@ -121,26 +154,30 @@ public class PasswordFragment extends Fragment {
             return false;
         });
 
-        // EN: Auto-focus handling / RU: Обработка фокуса
+        // EN: Auto-focus handling | RU: Обработка автоматического фокуса
         binding.eTPassword.setOnFocusChangeListener((v, hasFocus) -> {
-            if (hasFocus && binding.eTPassword.length() > 0) {
+            if (hasFocus && binding.eTPassword.length() > 0 && binding.eTPassword.length() <= 60) {
                 binding.btnUnlock.setVisibility(View.VISIBLE);
             }
         });
 
+        // --- EN: UNLOCK BUTTON LOGIC | RU: ЛОГИКА КНОПКИ РАЗБЛОКИРОВКИ ---
         binding.btnUnlock.setOnClickListener(v -> {
             int length = binding.eTPassword.length();
             if (length == 0 || length > 60) return;
 
+            // EN: Disable UI during authentication | RU: Блокируем интерфейс на время аутентификации
             binding.btnUnlock.setEnabled(false);
             binding.eTPassword.setEnabled(false);
             binding.biometrics.setEnabled(false);
             binding.loading.setVisibility(View.VISIBLE);
 
+            // EN: Get password characters | RU: Получаем символы пароля
             char[] temp = new char[length];
             binding.eTPassword.getText().getChars(0, length, temp, 0);
             passwordViewModel.setPassword(temp);
 
+            // EN: Background thread for encryption check | RU: Фоновый поток для проверки шифрования
             new Thread(() -> {
                 try {
                     DirHash dirHash = settings.getDirHashForKey(temp);
@@ -172,6 +209,7 @@ public class PasswordFragment extends Fragment {
                     Log.e(TAG, "Login failed", e);
                     if (isAdded()) {
                         requireActivity().runOnUiThread(() -> {
+                            // EN: Re-enable UI on failure | RU: Разблокируем интерфейс при ошибке
                             binding.btnUnlock.setEnabled(true);
                             binding.eTPassword.setEnabled(true);
                             binding.biometrics.setEnabled(true);
@@ -183,26 +221,26 @@ public class PasswordFragment extends Fragment {
             }).start();
         });
 
-        // --- DYNAMIC HELP BUTTON COLOR LOGIC ---
+        // --- EN: HELP BUTTON WITH COLOR CHANGE EFFECT | RU: КНОПКА ПОМОЩИ С ЭФФЕКТОМ СМЕНЫ ЦВЕТА ---
         binding.btnHelp.setOnClickListener(v -> {
-            // EN: Save the original icon tint (usually gray) / RU: Сохраняем оригинальный цвет иконки (обычно серый)
+            // EN: Save the original icon tint (usually gray) | RU: Сохраняем оригинальный цвет иконки (обычно серый)
             ColorStateList originalTint = binding.btnHelp.getIconTint();
             
-            // EN: Change icon color to Yellow (Hex: #FFC107 - Material Amber) / RU: Меняем цвет иконки на желтый
+            // EN: Change icon color to Yellow (Hex: #FFC107 - Material Amber) | RU: Меняем цвет иконки на жёлтый
             binding.btnHelp.setIconTint(ColorStateList.valueOf(Color.parseColor("#FFC107")));
 
-            // EN: Create and show dialog directly to track dismissal / RU: Создаем и показываем диалог, чтобы отследить его закрытие
+            // EN: Create and show dialog directly to track dismissal | RU: Создаём и показываем диалог, чтобы отследить его закрытие
             new MaterialAlertDialogBuilder(requireContext())
                     .setMessage(getString(R.string.launcher_help_message))
                     .setPositiveButton(android.R.string.ok, null)
                     .setOnDismissListener(dialog -> {
-                        // EN: Restore original color when dialog closes / RU: Возвращаем исходный цвет при закрытии диалога
+                        // EN: Restore original color when dialog closes | RU: Возвращаем исходный цвет при закрытии диалога
                         binding.btnHelp.setIconTint(originalTint);
                     })
                     .show();
         });
 
-        // --- BIOMETRICS SETUP ---
+        // --- EN: BIOMETRICS SETUP | RU: НАСТРОЙКА БИОМЕТРИИ ---
         BiometricManager biometricManager = BiometricManager.from(requireContext());
         if (settings.isBiometricsEnabled() && biometricManager.canAuthenticate(BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS) {
             Executor executor = ContextCompat.getMainExecutor(requireContext());
@@ -250,4 +288,4 @@ public class PasswordFragment extends Fragment {
         super.onDestroyView();
         binding = null;
     }
-                }
+}
