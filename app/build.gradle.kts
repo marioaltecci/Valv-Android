@@ -53,9 +53,7 @@ android {
         buildConfig = true
     }
     dependenciesInfo {
-        // Disables dependency metadata when building APKs.
         includeInApk = false
-        // Disables dependency metadata when building Android App Bundles.
         includeInBundle = false
     }
     kotlinOptions {
@@ -88,17 +86,15 @@ dependencies {
     implementation(libs.about.libraries)
     implementation(libs.about.libraries.compose)
     
-    // Gson для работы со списком последних хранилищ
     implementation 'com.google.code.gson:gson:2.10.1'
 }
 
-aboutLibraries {
-    configPath = "config"
-    // Remove the "generated" timestamp to allow for reproducible builds
-    export {
-        excludeFields = arrayOf("generated")
-    }
-}
+// aboutLibraries {
+//     configPath = "config"
+//     export {
+//         excludeFields.set(listOf("generated"))
+//     }
+// }
 
 tasks.whenTaskAdded {
     if (name.contains("ArtProfile")) {
