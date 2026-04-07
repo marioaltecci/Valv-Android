@@ -118,24 +118,19 @@ public class PasswordFragment extends Fragment {
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
             
             @Override
-            public void afterTextChanged(Editable s) {
-                // Рус: Проверка длины пароля (макс. 60 символов)
-                // Eng: Check password length (max 60 chars)
-                int length = (s != null) ? s.length() : 0;
-                if (length > 60) {
-                    // Рус: Показываем ошибку и трясем поле
-                    // Eng: Show error and shake field
-                    binding.textField.setError("Max 60 characters");
-                    ViewAnimations.shakeView(binding.textField);
-                    binding.btnUnlock.setEnabled(false);
-                } else {
-                    // Рус: Очищаем ошибку, включаем кнопку если есть хоть 1 символ
-                    // Eng: Clear error, enable button if at least 1 char
-                    binding.textField.setError(null);
-                    binding.btnUnlock.setEnabled(length > 0);
-                }
-            }
-        });
+public void afterTextChanged(Editable s) {
+    // Рус: Проверка длины пароля (макс. 60 символов)
+    int length = (s != null) ? s.length() : 0;
+    if (length > 60) {
+        // Рус: Показываем ошибку, кнопка отключается
+        binding.textField.setError("Max 60 characters");
+        binding.btnUnlock.setEnabled(false);
+    } else {
+        // Рус: Очищаем ошибку, включаем кнопку если есть хоть 1 символ
+        binding.textField.setError(null);
+        binding.btnUnlock.setEnabled(length > 0);
+    }
+}
 
         // Рус: Обработка нажатия кнопки "Готово" на клавиатуре (IME action)
         // Eng: Handle "Done" button press on keyboard (IME action)
