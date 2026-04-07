@@ -87,6 +87,9 @@ dependencies {
     implementation(libs.glide)
     implementation(libs.about.libraries)
     implementation(libs.about.libraries.compose)
+    
+    // Gson для работы со списком последних хранилищ
+    implementation 'com.google.code.gson:gson:2.10.1'
 }
 
 aboutLibraries {
