@@ -86,15 +86,8 @@ dependencies {
     implementation(libs.about.libraries)
     implementation(libs.about.libraries.compose)
     
-    implementation 'com.google.code.gson:gson:2.10.1'
+    implementation("com.google.code.gson:gson:2.10.1")
 }
-
-// aboutLibraries {
-//     configPath = "config"
-//     export {
-//         excludeFields.set(listOf("generated"))
-//     }
-// }
 
 tasks.whenTaskAdded {
     if (name.contains("ArtProfile")) {
