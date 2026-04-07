@@ -27,6 +27,8 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.google.common.primitives.Bytes;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -55,9 +57,14 @@ public class Settings {
     public static final String PREF_APP_EXIT_ON_LOCK = "app_exit_on_lock";
     public static final String PREF_APP_BIOMETRICS = "app_biometrics";
     public static final String PREF_APP_BIOMETRICS_DATA = "app_biometrics_data";
+    
+    // Константы для хранения списка последних хранилищ
+    private static final String PREF_RECENT_VAULTS = "recent_vaults";
+    private static final int MAX_RECENT_VAULTS = 5;
 
     private final Context context;
     private static Settings settings;
+    private final Gson gson = new Gson();
 
     public static Settings getInstance(@NonNull Context context) {
         if (settings == null) {
@@ -310,4 +317,64 @@ public class Settings {
     public boolean showFilenames() {
         return getSharedPrefs().getBoolean(PREF_SHOW_FILENAMES_IN_GRID, true);
     }
-}
+
+    // ==================== МЕТОДЫ ДЛЯ СПИСКА ПОСЛЕДНИХ ХРАНИЛИЩ ====================
+
+    /**
+     * Получить список последних открытых хранилищ
+     * @return список путей (максимум MAX_RECENT_VAULTS штук)
+     */
+    @NonNull
+    public List<String> getRecentVaults() {
+        String json = getSharedPrefs().getString(PREF_RECENT_VAULTS, null);
+        if (json == null || json.isEmpty()) {
+            return new ArrayList<>();
+        }
+        try {
+            return gson.fromJson(json, new TypeToken<List<String>>(){}.getType());
+        } catch (Exception e) {
+            Log.e(TAG, "getRecentVaults: failed to parse", e);
+            return new ArrayList<>();
+        }
+    }
+
+    /**
+     * Добавить хранилище в список последних
+     * @param path путь к хранилищу
+     */
+    public void addRecentVault(@NonNull String path) {
+        List<String> list = getRecentVaults();
+        // Удаляем если уже есть
+        list.remove(path);
+        // Добавляем в начало
+        list.add(0, path);
+        // Оставляем только MAX_RECENT_VAULTS штук
+        while (list.size() > MAX_RECENT_VAULTS) {
+            list.remove(list.size() - 1);
+        }
+        String json = gson.toJson(list);
+        getSharedPrefsEditor().putString(PREF_RECENT_VAULTS, json).apply();
+        Log.d(TAG, "addRecentVault: added " + path + ", now " + list.size() + " vaults");
+    }
+
+    /**
+     * Удалить хранилище из списка последних
+     * @param path путь к хранилищу
+     */
+    public void removeRecentVault(@NonNull String path) {
+        List<String> list = getRecentVaults();
+        if (list.remove(path)) {
+            String json = gson.toJson(list);
+            getSharedPrefsEditor().putString(PREF_RECENT_VAULTS, json).apply();
+            Log.d(TAG, "removeRecentVault: removed " + path);
+        }
+    }
+
+    /**
+     * Очистить весь список последних хранилищ
+     */
+    public void clearRecentVaults() {
+        getSharedPrefsEditor().remove(PREF_RECENT_VAULTS).apply();
+        Log.d(TAG, "clearRecentVaults: cleared");
+    }
+    }
