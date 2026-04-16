@@ -20,6 +20,7 @@ public class PasswordViewModel extends ViewModel {
     private static final String TAG = "PasswordViewModel";
 
     private Password password;
+    private Uri selectedFolderUri; // EN: Store selected vault path / RU: Храним путь к выбранному сейфу
 
     public boolean isLocked() {
         initPassword();
@@ -47,12 +48,19 @@ public class PasswordViewModel extends ViewModel {
         this.password.setDirHash(dirHash);
     }
 
+    // EN: Getter for the selected folder / RU: Геттер для выбранной папки
+    public Uri getSelectedFolderUri() {
+        return selectedFolderUri;
+    }
+
     /**
      * EN: Validates password by attempting to decrypt the first found .valv file.
      * RU: Проверяет пароль, пытаясь расшифровать первый найденный .valv файл.
      */
     public boolean initializeVault(Context context, Uri folderUri, char[] passwordInput) {
         initPassword();
+        this.selectedFolderUri = folderUri; // EN: Save the URI / RU: Сохраняем URI
+        
         try {
             DocumentFile root = DocumentFile.fromTreeUri(context, folderUri);
             if (root == null || !root.isDirectory()) return false;
@@ -84,10 +92,9 @@ public class PasswordViewModel extends ViewModel {
                 return true;
             } catch (InvalidPasswordException e) {
                 Log.e(TAG, "Invalid password entered");
+                this.selectedFolderUri = null; // EN: Reset on failure / RU: Сброс при ошибке
                 return false;
             } catch (Exception e) {
-                // EN: Might be a V1 file, try fallback or just report error
-                // RU: Возможно это файл V1, можно добавить попытку входа через v1 тут
                 Log.e(TAG, "Decryption check failed", e);
                 return false;
             }
