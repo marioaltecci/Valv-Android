@@ -1,9 +1,10 @@
 package se.arctosoft.vault;
 
-import static androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG;
-
 import android.annotation.SuppressLint;
+import android.app.Activity;
+import android.content.Intent;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -16,43 +17,26 @@ import android.view.inputmethod.EditorInfo;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.biometric.BiometricManager;
-import androidx.biometric.BiometricPrompt;
-import androidx.core.content.ContextCompat;
 import androidx.core.view.WindowCompat;
 import androidx.fragment.app.Fragment;
-import androidx.lifecycle.SavedStateHandle;
 import androidx.lifecycle.ViewModelProvider;
-import androidx.navigation.Navigation;
 import androidx.navigation.fragment.NavHostFragment;
 
-import java.util.concurrent.Executor;
-
-import javax.crypto.Cipher;
-import javax.crypto.SecretKey;
-import javax.crypto.spec.IvParameterSpec;
-
-import se.arctosoft.vault.data.DirHash;
 import se.arctosoft.vault.databinding.FragmentPasswordBinding;
 import se.arctosoft.vault.encryption.Encryption;
-import se.arctosoft.vault.utils.Dialogs;
-import se.arctosoft.vault.utils.Settings;
 import se.arctosoft.vault.utils.Toaster;
 import se.arctosoft.vault.utils.ViewAnimations;
 import se.arctosoft.vault.viewmodel.PasswordViewModel;
 
-// EN: Fragment class with edge-to-edge UI implementation
-// RU: Класс фрагмента с реализацией интерфейса "от края до края"
+// EN: Updated Fragment with "Folder First, Password Second" logic
+// RU: Обновленный фрагмент с логикой "Сначала папка, потом пароль"
 public class PasswordFragment extends Fragment {
     private static final String TAG = "PasswordFragment";
-    public static String LOGIN_SUCCESSFUL = "LOGIN_SUCCESSFUL";
+    private static final int PICK_FOLDER_REQUEST = 1001;
 
-    private PasswordViewModel passwordViewModel;
-    private SavedStateHandle savedStateHandle;
     private FragmentPasswordBinding binding;
-
-    private BiometricPrompt biometricPrompt;
-    private BiometricPrompt.PromptInfo promptInfo;
+    private PasswordViewModel passwordViewModel;
+    private Uri selectedFolderUri;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -63,163 +47,111 @@ public class PasswordFragment extends Fragment {
     @SuppressLint("ClickableViewAccessibility")
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
-        // --- EDGE TO EDGE SETUP ---
-        // EN: Make the window layout expand behind system bars
-        // RU: Заставляем разметку окна расширяться за пределы системных баров
+        // --- UI SETUP ---
         Window window = requireActivity().getWindow();
         WindowCompat.setDecorFitsSystemWindows(window, false);
-        
-        // EN: Set transparent colors for status and navigation bars
-        // RU: Устанавливаем прозрачные цвета для статус-бара и панели навигации
         window.setStatusBarColor(Color.TRANSPARENT);
         window.setNavigationBarColor(Color.TRANSPARENT);
 
         passwordViewModel = new ViewModelProvider(requireActivity()).get(PasswordViewModel.class);
-
-        savedStateHandle = Navigation.findNavController(view)
-                .getPreviousBackStackEntry()
-                .getSavedStateHandle();
-        savedStateHandle.set(LOGIN_SUCCESSFUL, false);
-
-        Settings settings = Settings.getInstance(requireContext());
-
-        // --- UI ANIMATIONS ---
         ViewAnimations.setupElasticLogo(binding.logoContainer, binding.ivLogo);
-        binding.logoContainer.setOnClickListener(v -> ViewAnimations.shakeView(binding.ivLogo));
 
-        // --- PASSWORD INPUT LOGIC ---
+        // EN: Initial state: actions visible, password hidden
+        // RU: Начальное состояние: действия видны, пароль скрыт
+        binding.actionsContainer.setVisibility(View.VISIBLE);
+        binding.passwordContainer.setVisibility(View.GONE);
         binding.btnUnlock.setEnabled(false);
+
+        // --- BUTTON LOGIC ---
+
+        binding.btnOpenVault.setOnClickListener(v -> {
+            // EN: Open system folder picker / RU: Открываем системный выбор папки
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+            startActivityForResult(intent, PICK_FOLDER_REQUEST);
+        });
+
+        binding.btnCreateVault.setOnClickListener(v -> {
+            // EN: Same picker, but we'll flag it as new vault creation
+            // RU: Тот же выбор, но пометим как создание нового хранилища
+            startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE), PICK_FOLDER_REQUEST);
+        });
+
         binding.eTPassword.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
-            
-            @Override
-            public void afterTextChanged(Editable s) {
-                int length = (s != null) ? s.length() : 0;
-                if (length > 60) {
-                    binding.textField.setError("Max 60 characters");
-                    ViewAnimations.shakeView(binding.textField);
-                    binding.btnUnlock.setEnabled(false);
-                } else {
-                    binding.textField.setError(null);
-                    binding.btnUnlock.setEnabled(length > 0);
-                }
+            @Override public void afterTextChanged(Editable s) {
+                binding.btnUnlock.setEnabled(s != null && s.length() > 0);
             }
         });
 
-        binding.eTPassword.setOnEditorActionListener((v, actionId, event) -> {
-            if (actionId == EditorInfo.IME_ACTION_GO || actionId == EditorInfo.IME_ACTION_DONE) {
-                if (binding.btnUnlock.isEnabled()) binding.btnUnlock.performClick();
-                return true;
+        binding.btnUnlock.setOnClickListener(v -> unlockVault());
+
+        binding.btnHelp.setOnClickListener(v -> {
+            // EN: Help info / RU: Инфо справка
+            Toaster.getInstance(requireContext()).showShort("Select a folder to begin decryption.");
+        });
+    }
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == PICK_FOLDER_REQUEST && resultCode == Activity.RESULT_OK && data != null) {
+            selectedFolderUri = data.getData();
+            if (selectedFolderUri != null) {
+                // EN: Folder selected, now show password field
+                // RU: Папка выбрана, теперь показываем поле пароля
+                showPasswordInput();
             }
-            return false;
-        });
-
-        binding.btnUnlock.setOnClickListener(v -> {
-            int length = binding.eTPassword.length();
-            if (length == 0 || length > 60) return;
-
-            binding.btnUnlock.setEnabled(false);
-            binding.eTPassword.setEnabled(false);
-            binding.biometrics.setEnabled(false);
-            binding.loading.setVisibility(View.VISIBLE);
-
-            char[] temp = new char[length];
-            binding.eTPassword.getText().getChars(0, length, temp, 0);
-            passwordViewModel.setPassword(temp);
-
-            new Thread(() -> {
-                try {
-                    DirHash dirHash = settings.getDirHashForKey(temp);
-                    if (dirHash == null) {
-                        byte[] salt = Encryption.generateSecureSalt(Encryption.SALT_LENGTH);
-                        dirHash = Encryption.getDirHash(salt, temp);
-                        if (dirHash != null) {
-                            settings.createDirHashEntry(salt, dirHash.hash());
-                        } else {
-                            throw new Exception("Hash error");
-                        }
-                    }
-
-                    DirHash finalDirHash = dirHash;
-                    if (isAdded()) {
-                        requireActivity().runOnUiThread(() -> {
-                            binding.eTPassword.clearFocus();
-                            passwordViewModel.setDirHash(finalDirHash);
-                            binding.eTPassword.setText(null);
-                            MainActivity.GLIDE_KEY = System.currentTimeMillis();
-                            savedStateHandle.set(LOGIN_SUCCESSFUL, true);
-                            
-                            binding.getRoot().postDelayed(() -> {
-                                if (isAdded()) {
-                                    NavHostFragment.findNavController(this).popBackStack();
-                                }
-                            }, 50);
-                        });
-                    }
-                } catch (Exception e) {
-                    Log.e(TAG, "Login failed", e);
-                    if (isAdded()) {
-                        requireActivity().runOnUiThread(() -> {
-                            binding.btnUnlock.setEnabled(true);
-                            binding.eTPassword.setEnabled(true);
-                            binding.biometrics.setEnabled(true);
-                            binding.loading.setVisibility(View.GONE);
-                            Toaster.getInstance(requireActivity()).showShort("Authentication error");
-                        });
-                    }
-                }
-            }).start();
-        });
-
-        // EN: Manual hardcoded text as per protocol
-        // RU: Ручной хардкод текста согласно протоколу
-        binding.btnHelp.setOnClickListener(v -> Dialogs.showTextDialog(requireContext(), null, "Help information here"));
-
-        // --- BIOMETRICS SETUP ---
-        BiometricManager biometricManager = BiometricManager.from(requireContext());
-        if (settings.isBiometricsEnabled() && biometricManager.canAuthenticate(BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS) {
-            Executor executor = ContextCompat.getMainExecutor(requireContext());
-            biometricPrompt = new BiometricPrompt(this, executor, new BiometricPrompt.AuthenticationCallback() {
-                @Override
-                public void onAuthenticationSucceeded(@NonNull BiometricPrompt.AuthenticationResult result) {
-                    super.onAuthenticationSucceeded(result);
-                    BiometricPrompt.CryptoObject cryptoObject = result.getCryptoObject();
-                    if (cryptoObject != null) {
-                        try {
-                            byte[] decrypted = cryptoObject.getCipher().doFinal(settings.getBiometricsData());
-                            char[] chars = Encryption.toChars(decrypted);
-                            binding.eTPassword.setText(chars, 0, chars.length);
-                            binding.btnUnlock.performClick();
-                        } catch (Exception e) {
-                            Toaster.getInstance(requireActivity()).showShort("Biometric decryption error");
-                        }
-                    }
-                }
-            });
-
-            promptInfo = new BiometricPrompt.PromptInfo.Builder()
-                    .setTitle("Biometric Unlock")
-                    .setNegativeButtonText("Cancel")
-                    .setAllowedAuthenticators(BIOMETRIC_STRONG)
-                    .build();
-
-            binding.biometrics.setOnClickListener(v -> {
-                try {
-                    Cipher cipher = Encryption.getBiometricCipher();
-                    SecretKey secretKey = Encryption.getOrGenerateBiometricSecretKey();
-                    byte[] iv = settings.getBiometricsIv();
-                    cipher.init(Cipher.DECRYPT_MODE, secretKey, new IvParameterSpec(iv));
-                    biometricPrompt.authenticate(promptInfo, new BiometricPrompt.CryptoObject(cipher));
-                } catch (Exception e) {
-                    Toaster.getInstance(requireContext()).showShort("Biometrics unavailable");
-                }
-            });
-            
-            binding.biometrics.post(() -> binding.biometrics.performClick());
-        } else {
-            binding.biometrics.setVisibility(View.GONE);
         }
+    }
+
+    private void showPasswordInput() {
+        // EN: Transition animation / RU: Анимация перехода
+        binding.actionsContainer.setVisibility(View.GONE);
+        binding.passwordContainer.setVisibility(View.VISIBLE);
+        binding.tvSubtitle.setText("Enter password for selected folder");
+        binding.eTPassword.requestFocus();
+    }
+
+    private void unlockVault() {
+        String passStr = binding.eTPassword.getText().toString();
+        char[] password = passStr.toCharArray();
+
+        binding.btnUnlock.setEnabled(false);
+        // binding.loading.setVisibility(View.VISIBLE); // EN: If you have a progress bar / RU: Если есть прогресс-бар
+
+        new Thread(() -> {
+            try {
+                // EN: Use ChaCha20 block to verify password against the folder
+                // RU: Используем блок ChaCha20 для проверки пароля в этой папке
+                // EN: We pass folder URI and password to ViewModel for processing
+                // RU: Передаем URI папки и пароль в ViewModel для обработки
+                boolean success = passwordViewModel.initializeWithFolder(requireContext(), selectedFolderUri, password);
+
+                if (isAdded()) {
+                    requireActivity().runOnUiThread(() -> {
+                        if (success) {
+                            // EN: Go to gallery / RU: Переход в галерею
+                            NavHostFragment.findNavController(this).navigate(R.id.action_password_to_gallery);
+                        } else {
+                            handleError("Invalid password or corrupted vault");
+                        }
+                    });
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Decryption error", e);
+                if (isAdded()) {
+                    requireActivity().runOnUiThread(() -> handleError("Access error"));
+                }
+            }
+        }).start();
+    }
+
+    private void handleError(String message) {
+        binding.btnUnlock.setEnabled(true);
+        // binding.loading.setVisibility(View.GONE);
+        Toaster.getInstance(requireContext()).showShort(message);
+        ViewAnimations.shakeView(binding.textField);
     }
 
     @Override
@@ -227,4 +159,4 @@ public class PasswordFragment extends Fragment {
         super.onDestroyView();
         binding = null;
     }
-                    }
+}
