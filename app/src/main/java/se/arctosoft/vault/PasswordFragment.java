@@ -3,6 +3,7 @@ package se.arctosoft.vault;
 import static androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG;
 
 import android.annotation.SuppressLint;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -10,6 +11,7 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
 import android.view.inputmethod.EditorInfo;
 
 import androidx.annotation.NonNull;
@@ -17,6 +19,7 @@ import androidx.annotation.Nullable;
 import androidx.biometric.BiometricManager;
 import androidx.biometric.BiometricPrompt;
 import androidx.core.content.ContextCompat;
+import androidx.core.view.WindowCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.SavedStateHandle;
 import androidx.lifecycle.ViewModelProvider;
@@ -38,6 +41,8 @@ import se.arctosoft.vault.utils.Toaster;
 import se.arctosoft.vault.utils.ViewAnimations;
 import se.arctosoft.vault.viewmodel.PasswordViewModel;
 
+// EN: Fragment class with edge-to-edge UI implementation
+// RU: Класс фрагмента с реализацией интерфейса "от края до края"
 public class PasswordFragment extends Fragment {
     private static final String TAG = "PasswordFragment";
     public static String LOGIN_SUCCESSFUL = "LOGIN_SUCCESSFUL";
@@ -58,6 +63,17 @@ public class PasswordFragment extends Fragment {
     @SuppressLint("ClickableViewAccessibility")
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        // --- EDGE TO EDGE SETUP ---
+        // EN: Make the window layout expand behind system bars
+        // RU: Заставляем разметку окна расширяться за пределы системных баров
+        Window window = requireActivity().getWindow();
+        WindowCompat.setDecorFitsSystemWindows(window, false);
+        
+        // EN: Set transparent colors for status and navigation bars
+        // RU: Устанавливаем прозрачные цвета для статус-бара и панели навигации
+        window.setStatusBarColor(Color.TRANSPARENT);
+        window.setNavigationBarColor(Color.TRANSPARENT);
+
         passwordViewModel = new ViewModelProvider(requireActivity()).get(PasswordViewModel.class);
 
         savedStateHandle = Navigation.findNavController(view)
@@ -128,18 +144,12 @@ public class PasswordFragment extends Fragment {
                     DirHash finalDirHash = dirHash;
                     if (isAdded()) {
                         requireActivity().runOnUiThread(() -> {
-                            // --- PRE-EXIT STABILIZATION ---
-                            // 1. Clear focus to hide keyboard and stabilize layout
-                            // 1. Убираем фокус, чтобы спрятать клаву и стабилизировать лайаут
                             binding.eTPassword.clearFocus();
-                            
                             passwordViewModel.setDirHash(finalDirHash);
                             binding.eTPassword.setText(null);
                             MainActivity.GLIDE_KEY = System.currentTimeMillis();
                             savedStateHandle.set(LOGIN_SUCCESSFUL, true);
                             
-                            // 2. THE FIX: Tiny delay (50ms) to ensure background fragment is ready
-                            // 2. ФИКС: Крошечная задержка (50мс), чтобы нижний фрагмент успел подготовиться
                             binding.getRoot().postDelayed(() -> {
                                 if (isAdded()) {
                                     NavHostFragment.findNavController(this).popBackStack();
@@ -162,7 +172,9 @@ public class PasswordFragment extends Fragment {
             }).start();
         });
 
-        binding.btnHelp.setOnClickListener(v -> Dialogs.showTextDialog(requireContext(), null, getString(R.string.launcher_help_message)));
+        // EN: Manual hardcoded text as per protocol
+        // RU: Ручной хардкод текста согласно протоколу
+        binding.btnHelp.setOnClickListener(v -> Dialogs.showTextDialog(requireContext(), null, "Help information here"));
 
         // --- BIOMETRICS SETUP ---
         BiometricManager biometricManager = BiometricManager.from(requireContext());
@@ -187,8 +199,8 @@ public class PasswordFragment extends Fragment {
             });
 
             promptInfo = new BiometricPrompt.PromptInfo.Builder()
-                    .setTitle(getString(R.string.biometrics_unlock_title))
-                    .setNegativeButtonText(getString(R.string.cancel))
+                    .setTitle("Biometric Unlock")
+                    .setNegativeButtonText("Cancel")
                     .setAllowedAuthenticators(BIOMETRIC_STRONG)
                     .build();
 
@@ -215,4 +227,4 @@ public class PasswordFragment extends Fragment {
         super.onDestroyView();
         binding = null;
     }
-                }
+                    }
