@@ -1,6 +1,7 @@
 package se.arctosoft.vault;
 
 import android.content.Intent;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
@@ -10,10 +11,10 @@ import android.view.WindowManager;
 import androidx.activity.EdgeToEdge;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.view.WindowCompat;
 import androidx.documentfile.provider.DocumentFile;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavController;
-import androidx.navigation.NavOptions;
 import androidx.navigation.Navigation;
 import androidx.navigation.fragment.NavHostFragment;
 import androidx.navigation.ui.AppBarConfiguration;
@@ -37,9 +38,17 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // EN: Enable modern edge-to-edge support
+        // RU: Включаем современную поддержку отображения "от края до края"
         EdgeToEdge.enable(this);
         super.onCreate(savedInstanceState);
         
+        // EN: Explicitly tell the window not to fit system windows to allow full-screen backgrounds
+        // RU: Явно говорим окну не подгонять контент под системные бары для полноэкранных фонов
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        getWindow().setStatusBarColor(Color.TRANSPARENT);
+        getWindow().setNavigationBarColor(Color.TRANSPARENT);
+
         Settings settings = Settings.getInstance(this);
         
         // Use secure flag to protect sensitive content
@@ -63,6 +72,8 @@ public class MainActivity extends AppCompatActivity {
         // Управление видимостью тулбара и обеспечение чистых переходов
         navController.addOnDestinationChangedListener((controller, destination, arguments) -> {
             if (destination.getId() == R.id.password) {
+                // EN: Hide app bar for password screen to allow image to hit the top
+                // RU: Прячем апп-бар для экрана пароля, чтобы картинка доходила до верха
                 binding.appBar.setVisibility(View.GONE);
             } else {
                 binding.appBar.setVisibility(View.VISIBLE);
